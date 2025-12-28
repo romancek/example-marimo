@@ -8,11 +8,7 @@ and enable polymorphic usage.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, runtime_checkable
-
-if TYPE_CHECKING:
-    import pandas as pd
-    import polars as pl
+from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 
 
 # Type variable for DataFrame types
@@ -25,7 +21,7 @@ class DataFrameLike(Protocol):
 
     def __len__(self) -> int: ...
 
-    def filter(self, *args: Any, **kwargs: Any) -> "DataFrameLike": ...
+    def filter(self, *args: Any, **kwargs: Any) -> DataFrameLike: ...
 
     def group_by(self, *args: Any, **kwargs: Any) -> Any: ...
 

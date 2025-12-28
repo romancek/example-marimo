@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 
 
@@ -72,6 +70,7 @@ class TestUserActivityAnalyzer:
         """Test error when required column is missing."""
         pytest.importorskip("polars")
         import polars as pl
+
         from audit_analyzer.analyzers import UserActivityAnalyzer
 
         df = pl.DataFrame({"col1": [1, 2, 3]})
@@ -158,7 +157,9 @@ class TestAnomalyDetector:
         anomalies = analyzer.detect_dangerous_actions()
 
         # Sample data has repo.destroy which is dangerous
-        dangerous_actions = [a for a in anomalies if a.anomaly_type == "dangerous_action"]
+        dangerous_actions = [
+            a for a in anomalies if a.anomaly_type == "dangerous_action"
+        ]
         assert len(dangerous_actions) > 0
 
     @pytest.mark.skipif(

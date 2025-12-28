@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from audit_analyzer.models import AuditLogEntry
 
+
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
 
@@ -139,7 +140,9 @@ def load_audit_log_lazy(
     elif HAS_POLARS:
         return _load_with_polars_lazy(path)
     else:
-        raise ImportError("No lazy loading backend available (install duckdb or polars)")
+        raise ImportError(
+            "No lazy loading backend available (install duckdb or polars)"
+        )
 
 
 def stream_audit_log(
@@ -147,7 +150,7 @@ def stream_audit_log(
     *,
     batch_size: int = 10000,
     validate: bool = False,
-) -> "Iterator[list[dict[str, Any]]]":
+) -> Iterator[list[dict[str, Any]]]:
     """Stream audit log entries in batches.
 
     Memory-efficient for very large files that don't fit in memory.
@@ -186,7 +189,7 @@ def stream_audit_log_fast(
     path: str | Path,
     *,
     batch_size: int = 50_000,
-) -> "Generator[list[dict[str, Any]], None, None]":
+) -> Generator[list[dict[str, Any]], None, None]:
     """Memory-mapped high-speed streaming loader.
 
     Uses memory mapping for efficient file access without loading
@@ -259,7 +262,9 @@ def load_incremental(
     elif HAS_POLARS:
         return _load_incremental_polars(path, since=since, until=until, columns=columns)
     else:
-        raise ImportError("No lazy loading backend available (install duckdb or polars)")
+        raise ImportError(
+            "No lazy loading backend available (install duckdb or polars)"
+        )
 
 
 # ============================================================
@@ -499,11 +504,13 @@ def _load_ndjson_file(path: Path, *, validate: bool, backend: str) -> Any:
     json_parser = orjson.loads if HAS_ORJSON else json.loads
     data = []
 
-    with path.open("rb" if HAS_ORJSON else "r", encoding=None if HAS_ORJSON else "utf-8") as f:
+    with path.open(
+        "rb" if HAS_ORJSON else "r", encoding=None if HAS_ORJSON else "utf-8"
+    ) as f:
         for line in f:
-            line = line.strip() if isinstance(line, bytes) else line.strip()
-            if line:
-                entry = json_parser(line)
+            stripped = line.strip()
+            if stripped:
+                entry = json_parser(stripped)
                 if validate:
                     entry = AuditLogEntry.model_validate(entry).model_dump()
                 data.append(entry)
@@ -612,9 +619,9 @@ def _load_incremental_duckdb(
 
     conditions = []
     if since:
-        conditions.append(f'"@timestamp" >= \'{since.isoformat()}\'')
+        conditions.append(f"\"@timestamp\" >= '{since.isoformat()}'")
     if until:
-        conditions.append(f'"@timestamp" < \'{until.isoformat()}\'')
+        conditions.append(f"\"@timestamp\" < '{until.isoformat()}'")
 
     if conditions:
         query += " WHERE " + " AND ".join(conditions)

@@ -2,15 +2,16 @@
 """Utility modules for audit log analysis."""
 
 from audit_analyzer.utils.constants import (
+    BUSINESS_HOURS,
     DANGEROUS_ACTIONS,
     HIGH_RISK_ACTIONS,
-    BUSINESS_HOURS,
     KNOWN_BOT_PATTERNS,
 )
 
+
 __all__ = [
+    "BUSINESS_HOURS",
     "DANGEROUS_ACTIONS",
     "HIGH_RISK_ACTIONS",
-    "BUSINESS_HOURS",
     "KNOWN_BOT_PATTERNS",
 ]

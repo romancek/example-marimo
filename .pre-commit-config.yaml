@@ -121,12 +121,13 @@ repos:
 
   # ============================================================
   # Markdown lint - Markdownファイルのチェック
+  # 注意: Node.js環境が必要。環境が整っていない場合はコメントアウト
   # ============================================================
-  - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.43.0
-    hooks:
-      - id: markdownlint
-        args: [--fix, --disable, MD013, MD033, MD041, --]
+  # - repo: https://github.com/igorshubovych/markdownlint-cli
+  #   rev: v0.43.0
+  #   hooks:
+  #     - id: markdownlint
+  #       args: [--fix, --disable, MD013, MD033, MD041, --]
 
 # ============================================================
 # pre-commit.ci 設定

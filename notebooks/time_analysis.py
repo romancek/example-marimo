@@ -17,15 +17,17 @@ Analyze temporal patterns in the audit log including:
 
 import marimo
 
+
 __generated_with = "0.18.0"
 app = marimo.App(width="medium")
 
 
 @app.cell
 def _():
+    import altair as alt
     import marimo as mo
     import polars as pl
-    import altair as alt
+
     return alt, mo, pl
 
 
@@ -38,7 +40,6 @@ def _(mo):
         このノートブックでは、Audit Logの時間的パターンを分析します。
         """
     )
-    return
 
 
 @app.cell
@@ -46,7 +47,7 @@ def _(mo):
     file_upload = mo.ui.file(
         filetypes=[".json", ".ndjson"],
         multiple=False,
-        label="Audit Logファイルをアップロード"
+        label="Audit Logファイルをアップロード",
     )
     file_upload
     return (file_upload,)
@@ -78,11 +79,13 @@ def _(file_upload, mo, pl):
             else:
                 ts = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
 
-            records.append({
-                "timestamp": ts,
-                "action": entry.get("action", "unknown"),
-                "actor": entry.get("actor", "unknown"),
-            })
+            records.append(
+                {
+                    "timestamp": ts,
+                    "action": entry.get("action", "unknown"),
+                    "actor": entry.get("actor", "unknown"),
+                }
+            )
 
         df = pl.DataFrame(records)
         mo.md(f"✅ {len(df)} イベントを読み込みました")
@@ -94,7 +97,6 @@ def _(file_upload, mo, pl):
 @app.cell
 def _(df, mo):
     mo.stop(df is None, mo.md("データを読み込んでください"))
-    return
 
 
 @app.cell
@@ -116,9 +118,7 @@ def _(df, mo, pl):
 @app.cell
 def _(mo):
     granularity = mo.ui.dropdown(
-        options=["hour", "day", "week", "month"],
-        value="day",
-        label="集計単位"
+        options=["hour", "day", "week", "month"], value="day", label="集計単位"
     )
     granularity
     return (granularity,)
@@ -152,25 +152,36 @@ def _(alt, df, granularity, mo, pl):
         time_series = (
             df.with_columns(
                 pl.col("timestamp").dt.month().alias("month"),
-                pl.col("timestamp").dt.year().alias("year")
+                pl.col("timestamp").dt.year().alias("year"),
             )
             .group_by(["year", "month"])
             .agg(pl.len().alias("count"))
             .sort(["year", "month"])
             .with_columns(
-                pl.concat_str([pl.col("year"), pl.lit("-"), pl.col("month").cast(pl.Utf8).str.zfill(2)]).alias("period")
+                pl.concat_str(
+                    [
+                        pl.col("year"),
+                        pl.lit("-"),
+                        pl.col("month").cast(pl.Utf8).str.zfill(2),
+                    ]
+                ).alias("period")
             )
         )
 
     # Create line chart
-    ts_chart = alt.Chart(time_series.to_pandas()).mark_line(point=True).encode(
-        x=alt.X("period:T" if granularity.value != "month" else "period:N", title="期間"),
-        y=alt.Y("count:Q", title="イベント数"),
-        tooltip=["period", "count"]
-    ).properties(
-        title=f"アクティビティ推移（{granularity.value}別）",
-        width=800,
-        height=400
+    ts_chart = (
+        alt.Chart(time_series.to_pandas())
+        .mark_line(point=True)
+        .encode(
+            x=alt.X(
+                "period:T" if granularity.value != "month" else "period:N", title="期間"
+            ),
+            y=alt.Y("count:Q", title="イベント数"),
+            tooltip=["period", "count"],
+        )
+        .properties(
+            title=f"アクティビティ推移（{granularity.value}別）", width=800, height=400
+        )
     )
 
     mo.md(f"## 📊 {granularity.value}別アクティビティ")
@@ -180,13 +191,11 @@ def _(alt, df, granularity, mo, pl):
 @app.cell
 def _(mo, ts_chart):
     mo.ui.altair_chart(ts_chart)
-    return
 
 
 @app.cell
 def _(mo):
     mo.md("## ⏰ 時間帯別分布")
-    return
 
 
 @app.cell
@@ -199,19 +208,22 @@ def _(alt, df, mo, pl):
         .sort("hour")
     )
 
-    hourly_chart = alt.Chart(hourly_dist.to_pandas()).mark_bar().encode(
-        x=alt.X("hour:O", title="時間 (0-23)"),
-        y=alt.Y("count:Q", title="イベント数"),
-        color=alt.condition(
-            alt.datum.hour >= 9 and alt.datum.hour < 18,
-            alt.value("#4c78a8"),  # Business hours
-            alt.value("#f58518")   # Off hours
-        ),
-        tooltip=["hour", "count"]
-    ).properties(
-        title="時間帯別アクティビティ（オレンジ=時間外）",
-        width=600,
-        height=300
+    hourly_chart = (
+        alt.Chart(hourly_dist.to_pandas())
+        .mark_bar()
+        .encode(
+            x=alt.X("hour:O", title="時間 (0-23)"),
+            y=alt.Y("count:Q", title="イベント数"),
+            color=alt.condition(
+                alt.datum.hour >= 9 and alt.datum.hour < 18,
+                alt.value("#4c78a8"),  # Business hours
+                alt.value("#f58518"),  # Off hours
+            ),
+            tooltip=["hour", "count"],
+        )
+        .properties(
+            title="時間帯別アクティビティ（オレンジ=時間外）", width=600, height=300
+        )
     )
 
     mo.ui.altair_chart(hourly_chart)
@@ -221,7 +233,6 @@ def _(alt, df, mo, pl):
 @app.cell
 def _(mo):
     mo.md("## 📅 曜日別分布")
-    return
 
 
 @app.cell
@@ -234,26 +245,28 @@ def _(alt, df, mo, pl):
         .agg(pl.len().alias("count"))
         .sort("weekday")
         .with_columns(
-            pl.col("weekday").replace_strict(
-                dict(enumerate(weekday_names)),
-                default="不明"
-            ).alias("weekday_name")
+            pl.col("weekday")
+            .replace_strict(dict(enumerate(weekday_names)), default="不明")
+            .alias("weekday_name")
         )
     )
 
-    weekday_chart = alt.Chart(weekday_dist.to_pandas()).mark_bar().encode(
-        x=alt.X("weekday_name:N", title="曜日", sort=weekday_names),
-        y=alt.Y("count:Q", title="イベント数"),
-        color=alt.condition(
-            alt.datum.weekday >= 5,
-            alt.value("#f58518"),  # Weekend
-            alt.value("#4c78a8")   # Weekday
-        ),
-        tooltip=["weekday_name", "count"]
-    ).properties(
-        title="曜日別アクティビティ（オレンジ=週末）",
-        width=500,
-        height=300
+    weekday_chart = (
+        alt.Chart(weekday_dist.to_pandas())
+        .mark_bar()
+        .encode(
+            x=alt.X("weekday_name:N", title="曜日", sort=weekday_names),
+            y=alt.Y("count:Q", title="イベント数"),
+            color=alt.condition(
+                alt.datum.weekday >= 5,
+                alt.value("#f58518"),  # Weekend
+                alt.value("#4c78a8"),  # Weekday
+            ),
+            tooltip=["weekday_name", "count"],
+        )
+        .properties(
+            title="曜日別アクティビティ（オレンジ=週末）", width=500, height=300
+        )
     )
 
     mo.ui.altair_chart(weekday_chart)
@@ -264,9 +277,9 @@ def _(alt, df, mo, pl):
 def _(df, mo, pl):
     # Off-hours analysis
     off_hours = df.filter(
-        (pl.col("timestamp").dt.hour() < 9) |
-        (pl.col("timestamp").dt.hour() >= 18) |
-        (pl.col("timestamp").dt.weekday() >= 5)
+        (pl.col("timestamp").dt.hour() < 9)
+        | (pl.col("timestamp").dt.hour() >= 18)
+        | (pl.col("timestamp").dt.weekday() >= 5)
     )
 
     off_hours_pct = len(off_hours) / len(df) * 100

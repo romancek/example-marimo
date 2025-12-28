@@ -7,12 +7,13 @@ Each analyzer focuses on a specific aspect:
 - anomaly: Suspicious activity detection
 """
 
-from audit_analyzer.analyzers.user_activity import UserActivityAnalyzer
-from audit_analyzer.analyzers.time_series import TimeSeriesAnalyzer
 from audit_analyzer.analyzers.anomaly import AnomalyDetector
+from audit_analyzer.analyzers.time_series import TimeSeriesAnalyzer
+from audit_analyzer.analyzers.user_activity import UserActivityAnalyzer
+
 
 __all__ = [
-    "UserActivityAnalyzer",
-    "TimeSeriesAnalyzer",
     "AnomalyDetector",
+    "TimeSeriesAnalyzer",
+    "UserActivityAnalyzer",
 ]

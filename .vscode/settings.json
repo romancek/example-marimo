@@ -1,38 +1,22 @@
 {
-  // ============================================================
-  // Python設定
-  // ============================================================
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
   "python.terminal.activateEnvironment": true,
-  // 型チェック
   "python.analysis.typeCheckingMode": "basic",
   "python.analysis.autoImportCompletions": true,
   "python.analysis.inlayHints.functionReturnTypes": true,
   "python.analysis.inlayHints.variableTypes": true,
-  // テスト設定
   "python.testing.pytestEnabled": true,
-  "python.testing.pytestArgs": [
-    "tests"
-  ],
+  "python.testing.pytestArgs": ["tests"],
   "python.testing.unittestEnabled": false,
-  // ============================================================
-  // エディター設定
-  // ============================================================
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
     "source.fixAll": "explicit",
     "source.organizeImports": "explicit"
   },
-  "editor.rulers": [
-    88,
-    120
-  ],
+  "editor.rulers": [88, 120],
   "editor.tabSize": 4,
   "editor.insertSpaces": true,
   "editor.wordWrap": "off",
-  // ============================================================
-  // Ruff設定（フォーマッター・リンター）
-  // ============================================================
   "[python]": {
     "editor.defaultFormatter": "charliermarsh.ruff",
     "editor.formatOnSave": true,
@@ -44,22 +28,11 @@
   "ruff.lint.run": "onSave",
   "ruff.format.args": [],
   "ruff.importStrategy": "fromEnvironment",
-  // ============================================================
-  // marimo設定
-  // ============================================================
   "marimo.pythonPath": "${workspaceFolder}/.venv/bin/python",
   "marimo.marimoPath": "${workspaceFolder}/.venv/bin/marimo",
   "marimo.showTerminal": false,
-  // ============================================================
-  // Mypy設定
-  // ============================================================
   "mypy-type-checker.importStrategy": "fromEnvironment",
-  "mypy-type-checker.args": [
-    "--config-file=${workspaceFolder}/pyproject.toml"
-  ],
-  // ============================================================
-  // ファイル設定
-  // ============================================================
+  "mypy-type-checker.args": ["--config-file=${workspaceFolder}/pyproject.toml"],
   "files.exclude": {
     "**/__pycache__": true,
     "**/.pytest_cache": true,
@@ -79,9 +52,6 @@
     "*.ndjson": "json",
     "pyproject.toml": "toml"
   },
-  // ============================================================
-  // 検索設定
-  // ============================================================
   "search.exclude": {
     "**/.venv": true,
     "**/__pycache__": true,
@@ -90,9 +60,6 @@
     "**/data": true,
     "**/dist": true
   },
-  // ============================================================
-  // JSON設定
-  // ============================================================
   "[json]": {
     "editor.defaultFormatter": "vscode.json-language-features",
     "editor.formatOnSave": true,
@@ -103,29 +70,17 @@
     "editor.formatOnSave": true,
     "editor.tabSize": 2
   },
-  // ============================================================
-  // Markdown設定
-  // ============================================================
   "[markdown]": {
     "editor.wordWrap": "on",
     "editor.formatOnSave": false
   },
-  // ============================================================
-  // TOML設定
-  // ============================================================
   "[toml]": {
     "editor.defaultFormatter": "tamasfe.even-better-toml",
     "editor.formatOnSave": true
   },
-  // ============================================================
-  // Git設定
-  // ============================================================
   "git.autofetch": true,
   "git.confirmSync": false,
   "git.enableSmartCommit": true,
-  // ============================================================
-  // ターミナル設定
-  // ============================================================
   "terminal.integrated.env.linux": {
     "VIRTUAL_ENV": "${workspaceFolder}/.venv",
     "PATH": "${workspaceFolder}/.venv/bin:${env:PATH}"
@@ -134,19 +89,8 @@
     "VIRTUAL_ENV": "${workspaceFolder}/.venv",
     "PATH": "${workspaceFolder}/.venv/bin:${env:PATH}"
   },
-  // ============================================================
-  // Error Lens設定
-  // ============================================================
-  "errorLens.enabledDiagnosticLevels": [
-    "error",
-    "warning"
-  ],
-  "errorLens.excludeBySource": [
-    "Pylance(reportMissingImports)"
-  ],
-  // ============================================================
-  // GitHub Copilot設定
-  // ============================================================
+  "errorLens.enabledDiagnosticLevels": ["error", "warning"],
+  "errorLens.excludeBySource": ["Pylance(reportMissingImports)"],
   "github.copilot.enable": {
     "*": true,
     "plaintext": false,

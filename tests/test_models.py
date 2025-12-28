@@ -3,12 +3,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 import pytest
 
-from audit_analyzer.models import AuditLogEntry, AuditLogBatch
+from audit_analyzer.models import AuditLogBatch, AuditLogEntry
 
 
 class TestAuditLogEntry:
@@ -88,14 +87,16 @@ class TestAuditLogEntry:
 
         assert entry.is_dangerous_action() is True
 
-    def test_is_dangerous_action_false(self, sample_audit_entry: dict[str, Any]) -> None:
+    def test_is_dangerous_action_false(
+        self, sample_audit_entry: dict[str, Any]
+    ) -> None:
         """Test is_dangerous_action for safe actions."""
         entry = AuditLogEntry.model_validate(sample_audit_entry)
 
         assert entry.is_dangerous_action() is False
 
     def test_extra_fields_captured(self) -> None:
-        """Test that unknown fields are captured in data dict."""
+        """Test that unknown fields are captured in extra_data dict."""
         data = {
             "@timestamp": 1703980800000,
             "action": "repo.create",
@@ -106,26 +107,41 @@ class TestAuditLogEntry:
         }
         entry = AuditLogEntry.model_validate(data)
 
-        assert entry.data["custom_field"] == "custom_value"
-        assert entry.data["another_field"] == 123
+        assert entry.extra_data["custom_field"] == "custom_value"
+        assert entry.extra_data["another_field"] == 123
 
     def test_immutable(self, sample_audit_entry: dict[str, Any]) -> None:
         """Test that entries are immutable (frozen)."""
+        from pydantic import ValidationError
+
         entry = AuditLogEntry.model_validate(sample_audit_entry)
 
-        with pytest.raises(Exception):  # ValidationError for frozen model
+        with pytest.raises(ValidationError):
             entry.action = "modified"  # type: ignore
 
     def test_validation_error_missing_required(self) -> None:
         """Test validation error for missing required fields."""
-        data = {
-            "@timestamp": 1703980800000,
+        from pydantic import ValidationError
+
+        # Missing @timestamp (required)
+        data_no_timestamp = {
             "action": "repo.create",
-            # missing actor and org
+            "actor": "test-user",
+            "org": "test-org",
         }
 
-        with pytest.raises(Exception):
-            AuditLogEntry.model_validate(data)
+        with pytest.raises(ValidationError):
+            AuditLogEntry.model_validate(data_no_timestamp)
+
+        # Missing action (required)
+        data_no_action = {
+            "@timestamp": 1703980800000,
+            "actor": "test-user",
+            "org": "test-org",
+        }
+
+        with pytest.raises(ValidationError):
+            AuditLogEntry.model_validate(data_no_action)
 
 
 class TestAuditLogBatch:

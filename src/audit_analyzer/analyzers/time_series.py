@@ -11,14 +11,10 @@ Analyzes temporal patterns including:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from audit_analyzer.analyzers.base import BaseAnalyzer
 from audit_analyzer.utils.constants import BUSINESS_HOURS, WEEKEND_DAYS
-
-if TYPE_CHECKING:
-    import pandas as pd
-    import polars as pl
 
 
 TimeGranularity = Literal["hour", "day", "week", "month"]
@@ -106,7 +102,9 @@ class TimeSeriesAnalyzer(BaseAnalyzer):
         else:
             df = self._df.copy()
             df["hour"] = df[self._timestamp_col].dt.hour
-            return df.groupby("hour").size().reset_index(name="count").sort_values("hour")
+            return (
+                df.groupby("hour").size().reset_index(name="count").sort_values("hour")
+            )
 
     def get_weekday_distribution(self) -> Any:
         """Get activity distribution by day of week.
@@ -129,7 +127,10 @@ class TimeSeriesAnalyzer(BaseAnalyzer):
             df = self._df.copy()
             df["weekday"] = df[self._timestamp_col].dt.weekday
             return (
-                df.groupby("weekday").size().reset_index(name="count").sort_values("weekday")
+                df.groupby("weekday")
+                .size()
+                .reset_index(name="count")
+                .sort_values("weekday")
             )
 
     def get_off_hours_activity(self) -> Any:
@@ -154,7 +155,9 @@ class TimeSeriesAnalyzer(BaseAnalyzer):
             hour = df[self._timestamp_col].dt.hour
             weekday = df[self._timestamp_col].dt.weekday
             return df[
-                (hour < start_hour) | (hour >= end_hour) | (weekday.isin(list(WEEKEND_DAYS)))
+                (hour < start_hour)
+                | (hour >= end_hour)
+                | (weekday.isin(list(WEEKEND_DAYS)))
             ]
 
     def get_time_range(self) -> tuple[datetime, datetime] | None:
@@ -228,7 +231,9 @@ class TimeSeriesAnalyzer(BaseAnalyzer):
         else:
             raise ValueError(f"Unknown granularity: {granularity}")
 
-        return df.groupby("period").size().reset_index(name="count").sort_values("period")
+        return (
+            df.groupby("period").size().reset_index(name="count").sort_values("period")
+        )
 
     def _analyze_polars(self) -> dict[str, Any]:
         """Polars-specific analysis implementation."""
@@ -276,9 +281,9 @@ class TimeSeriesAnalyzer(BaseAnalyzer):
                 "total_events": len(self._df),
                 "off_hours_percentage": round(off_hours_pct, 2),
                 "time_range": time_range,
-                "peak_hour": hourly.filter(
-                    pl.col("count") == pl.col("count").max()
-                )["hour"][0]
+                "peak_hour": hourly.filter(pl.col("count") == pl.col("count").max())[
+                    "hour"
+                ][0]
                 if len(hourly) > 0
                 else None,
             },
@@ -299,7 +304,10 @@ class TimeSeriesAnalyzer(BaseAnalyzer):
         # Weekly pattern
         df["weekday"] = df[self._timestamp_col].dt.weekday
         weekly = (
-            df.groupby("weekday").size().reset_index(name="count").sort_values("weekday")
+            df.groupby("weekday")
+            .size()
+            .reset_index(name="count")
+            .sort_values("weekday")
         )
 
         # Off-hours activity

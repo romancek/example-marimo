@@ -303,4 +303,3 @@ uv run marimo export html-wasm notebooks/index.py -o dist/ --mode run
 ## 📝 ライセンス
 
 このプロジェクトは [MIT License](./LICENSE) の下で公開されています。
-

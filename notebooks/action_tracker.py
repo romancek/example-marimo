@@ -17,15 +17,17 @@ Track and filter specific actions in the audit log:
 
 import marimo
 
+
 __generated_with = "0.18.0"
 app = marimo.App(width="medium")
 
 
 @app.cell
 def _():
+    import altair as alt
     import marimo as mo
     import polars as pl
-    import altair as alt
+
     return alt, mo, pl
 
 
@@ -38,7 +40,6 @@ def _(mo):
         特定のアクションを追跡・フィルタリングします。
         """
     )
-    return
 
 
 @app.cell
@@ -46,7 +47,7 @@ def _(mo):
     file_upload = mo.ui.file(
         filetypes=[".json", ".ndjson"],
         multiple=False,
-        label="Audit Logファイルをアップロード"
+        label="Audit Logファイルをアップロード",
     )
     file_upload
     return (file_upload,)
@@ -78,15 +79,17 @@ def _(file_upload, mo, pl):
             else:
                 ts = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
 
-            records.append({
-                "timestamp": ts,
-                "action": entry.get("action", "unknown"),
-                "actor": entry.get("actor", "unknown"),
-                "org": entry.get("org", "unknown"),
-                "repo": entry.get("repo"),
-                "user": entry.get("user"),
-                "team": entry.get("team"),
-            })
+            records.append(
+                {
+                    "timestamp": ts,
+                    "action": entry.get("action", "unknown"),
+                    "actor": entry.get("actor", "unknown"),
+                    "org": entry.get("org", "unknown"),
+                    "repo": entry.get("repo"),
+                    "user": entry.get("user"),
+                    "team": entry.get("team"),
+                }
+            )
 
         df = pl.DataFrame(records)
         mo.md(f"✅ {len(df)} イベントを読み込みました")
@@ -98,13 +101,14 @@ def _(file_upload, mo, pl):
 @app.cell
 def _(df, mo):
     mo.stop(df is None, mo.md("データを読み込んでください"))
-    return
 
 
 @app.cell
 def _(df, mo, pl):
     # Get unique actions
-    unique_actions = df.select(pl.col("action").unique()).sort("action")["action"].to_list()
+    unique_actions = (
+        df.select(pl.col("action").unique()).sort("action")["action"].to_list()
+    )
 
     mo.md(f"## 📋 アクション一覧 ({len(unique_actions)} 種類)")
     return (unique_actions,)
@@ -114,9 +118,7 @@ def _(df, mo, pl):
 def _(mo, unique_actions):
     # Action filter
     action_filter = mo.ui.multiselect(
-        options=unique_actions,
-        label="アクションでフィルタ",
-        max_selections=10
+        options=unique_actions, label="アクションでフィルタ", max_selections=10
     )
     action_filter
     return (action_filter,)
@@ -127,7 +129,7 @@ def _(mo):
     # Text search
     search_text = mo.ui.text(
         label="テキスト検索（アクション、ユーザー、リポジトリ）",
-        placeholder="検索キーワード..."
+        placeholder="検索キーワード...",
     )
     search_text
     return (search_text,)
@@ -144,9 +146,9 @@ def _(action_filter, alt, df, mo, pl, search_text):
     if search_text.value:
         search_term = search_text.value.lower()
         filtered_df = filtered_df.filter(
-            pl.col("action").str.to_lowercase().str.contains(search_term) |
-            pl.col("actor").str.to_lowercase().str.contains(search_term) |
-            pl.col("repo").str.to_lowercase().str.contains(search_term)
+            pl.col("action").str.to_lowercase().str.contains(search_term)
+            | pl.col("actor").str.to_lowercase().str.contains(search_term)
+            | pl.col("repo").str.to_lowercase().str.contains(search_term)
         )
 
     # Action summary
@@ -169,15 +171,16 @@ def _(action_filter, alt, df, mo, pl, search_text):
 def _(action_summary, alt, mo):
     # Action distribution chart
     if len(action_summary) > 0:
-        action_chart = alt.Chart(action_summary.head(20).to_pandas()).mark_bar().encode(
-            x=alt.X("count:Q", title="件数"),
-            y=alt.Y("action:N", sort="-x", title="アクション"),
-            color=alt.Color("count:Q", scale=alt.Scale(scheme="viridis")),
-            tooltip=["action", "count"]
-        ).properties(
-            title="アクション分布（上位20件）",
-            width=600,
-            height=400
+        action_chart = (
+            alt.Chart(action_summary.head(20).to_pandas())
+            .mark_bar()
+            .encode(
+                x=alt.X("count:Q", title="件数"),
+                y=alt.Y("action:N", sort="-x", title="アクション"),
+                color=alt.Color("count:Q", scale=alt.Scale(scheme="viridis")),
+                tooltip=["action", "count"],
+            )
+            .properties(title="アクション分布（上位20件）", width=600, height=400)
         )
 
         mo.ui.altair_chart(action_chart)
@@ -189,7 +192,6 @@ def _(action_summary, alt, mo):
 @app.cell
 def _(mo):
     mo.md("## 📝 イベント詳細")
-    return
 
 
 @app.cell
@@ -199,17 +201,15 @@ def _(filtered_df, mo):
         mo.ui.table(
             filtered_df.sort("timestamp", descending=True).head(100).to_pandas(),
             pagination=True,
-            page_size=20
+            page_size=20,
         )
     else:
         mo.md("表示するデータがありません")
-    return
 
 
 @app.cell
 def _(mo):
     mo.md("## 📦 リポジトリ別集計")
-    return
 
 
 @app.cell
@@ -224,14 +224,17 @@ def _(alt, filtered_df, mo, pl):
     )
 
     if len(repo_summary) > 0:
-        repo_chart = alt.Chart(repo_summary.to_pandas()).mark_bar().encode(
-            x=alt.X("count:Q", title="イベント数"),
-            y=alt.Y("repo:N", sort="-x", title="リポジトリ"),
-            tooltip=["repo", "count"]
-        ).properties(
-            title="リポジトリ別イベント数（上位15件）",
-            width=600,
-            height=300
+        repo_chart = (
+            alt.Chart(repo_summary.to_pandas())
+            .mark_bar()
+            .encode(
+                x=alt.X("count:Q", title="イベント数"),
+                y=alt.Y("repo:N", sort="-x", title="リポジトリ"),
+                tooltip=["repo", "count"],
+            )
+            .properties(
+                title="リポジトリ別イベント数（上位15件）", width=600, height=300
+            )
         )
 
         mo.ui.altair_chart(repo_chart)

@@ -12,9 +12,9 @@ Detects suspicious patterns including:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from audit_analyzer.analyzers.base import BaseAnalyzer
 from audit_analyzer.utils.constants import (
@@ -24,10 +24,6 @@ from audit_analyzer.utils.constants import (
     HIGH_RISK_ACTIONS,
     WEEKEND_DAYS,
 )
-
-if TYPE_CHECKING:
-    import pandas as pd
-    import polars as pl
 
 
 class RiskLevel(StrEnum):
@@ -127,10 +123,12 @@ class AnomalyDetector(BaseAnalyzer):
             RiskLevel.LOW: 3,
             RiskLevel.INFO: 4,
         }
-        anomalies.sort(key=lambda a: (risk_order[a.risk_level], a.timestamp or datetime.min))
+        anomalies.sort(
+            key=lambda a: (risk_order[a.risk_level], a.timestamp or datetime.min)
+        )
 
         # Calculate summary
-        risk_counts = {level: 0 for level in RiskLevel}
+        risk_counts = dict.fromkeys(RiskLevel, 0)
         for anomaly in anomalies:
             risk_counts[anomaly.risk_level] += 1
 
@@ -254,11 +252,16 @@ class AnomalyDetector(BaseAnalyzer):
             hour = df[self._timestamp_col].dt.hour
             weekday = df[self._timestamp_col].dt.weekday
             off_hours_mask = (
-                (hour < start_hour) | (hour >= end_hour) | weekday.isin(list(WEEKEND_DAYS))
+                (hour < start_hour)
+                | (hour >= end_hour)
+                | weekday.isin(list(WEEKEND_DAYS))
             )
 
             actor_counts = (
-                df[off_hours_mask].groupby(self._actor_col).size().reset_index(name="count")
+                df[off_hours_mask]
+                .groupby(self._actor_col)
+                .size()
+                .reset_index(name="count")
             )
             actor_counts = actor_counts[actor_counts["count"] > 5]
 
@@ -295,9 +298,9 @@ class AnomalyDetector(BaseAnalyzer):
 
             # Group by actor, action, and time window
             df = self._df.with_columns(
-                (
-                    pl.col(self._timestamp_col).dt.truncate(f"{window_minutes}m")
-                ).alias("time_window")
+                (pl.col(self._timestamp_col).dt.truncate(f"{window_minutes}m")).alias(
+                    "time_window"
+                )
             )
 
             bulk_df = (
@@ -405,7 +408,9 @@ class AnomalyDetector(BaseAnalyzer):
 
             # Get unique IPs per actor
             ip_counts = (
-                df.groupby(self._actor_col)[self._ip_col].nunique().reset_index(name="unique_ips")
+                df.groupby(self._actor_col)[self._ip_col]
+                .nunique()
+                .reset_index(name="unique_ips")
             )
             ip_counts = ip_counts[ip_counts["unique_ips"] > 3]
 

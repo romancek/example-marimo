@@ -101,7 +101,14 @@ wasm = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "audit-analyzer", extra = ["dev", "test"] },
+    { name = "hypothesis" },
+    { name = "mypy" },
+    { name = "polyfactory" },
+    { name = "pre-commit" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -131,7 +138,16 @@ requires-dist = [
 provides-extras = ["dev", "test", "docs", "wasm", "all"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "audit-analyzer", extras = ["dev", "test"] }]
+dev = [
+    { name = "hypothesis", specifier = ">=6.120.0" },
+    { name = "mypy", specifier = ">=1.13.0" },
+    { name = "polyfactory", specifier = ">=2.18.0" },
+    { name = "pre-commit", specifier = ">=4.0.0" },
+    { name = "pytest", specifier = ">=8.3.0" },
+    { name = "pytest-asyncio", specifier = ">=0.24.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+    { name = "ruff", specifier = ">=0.8.0" },
+]
 
 [[package]]
 name = "babel"

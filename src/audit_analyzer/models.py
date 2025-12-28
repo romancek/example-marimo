@@ -14,7 +14,7 @@ Reference:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated, Any
 
@@ -140,25 +140,27 @@ class ProgrammaticAccessType(StrEnum):
 
 
 # Dangerous actions that require special attention
-DANGEROUS_ACTIONS: frozenset[str] = frozenset([
-    "repo.destroy",
-    "repo.transfer",
-    "repo.access",
-    "org.remove_member",
-    "org.remove_outside_collaborator",
-    "org.update_member",
-    "team.destroy",
-    "team.remove_member",
-    "hook.create",
-    "hook.config_changed",
-    "hook.destroy",
-    "secret_scanning.disable",
-    "protected_branch.destroy",
-    "protected_branch.policy_override",
-    "business.remove_admin",
-    "integration.destroy",
-    "integration_installation.destroy",
-])
+DANGEROUS_ACTIONS: frozenset[str] = frozenset(
+    [
+        "repo.destroy",
+        "repo.transfer",
+        "repo.access",
+        "org.remove_member",
+        "org.remove_outside_collaborator",
+        "org.update_member",
+        "team.destroy",
+        "team.remove_member",
+        "hook.create",
+        "hook.config_changed",
+        "hook.destroy",
+        "secret_scanning.disable",
+        "protected_branch.destroy",
+        "protected_branch.policy_override",
+        "business.remove_admin",
+        "integration.destroy",
+        "integration_installation.destroy",
+    ]
+)
 
 
 class AuditLogEntry(BaseModel):
@@ -194,7 +196,7 @@ class AuditLogEntry(BaseModel):
         ...     action="repo.create",
         ...     actor="admin-user",
         ...     org="my-org",
-        ...     repo="my-org/new-repo"
+        ...     repo="my-org/new-repo",
         ... )
     """
 
@@ -268,16 +270,16 @@ class AuditLogEntry(BaseModel):
         - datetime object
         """
         if isinstance(v, datetime):
-            return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+            return v if v.tzinfo else v.replace(tzinfo=UTC)
         if isinstance(v, (int, float)):
             # Heuristic: if > 10^12, it's milliseconds
             if v > 1e12:
-                return datetime.fromtimestamp(v / 1000, tz=timezone.utc)
-            return datetime.fromtimestamp(v, tz=timezone.utc)
+                return datetime.fromtimestamp(v / 1000, tz=UTC)
+            return datetime.fromtimestamp(v, tz=UTC)
         if isinstance(v, str):
-            # Try ISO format
-            dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
-            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+            # Try ISO format (Python 3.11+ supports 'Z' suffix)
+            dt = datetime.fromisoformat(v)
+            return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
         raise ValueError(f"Cannot parse timestamp: {v}")
 
     @field_validator("created_at", mode="before")
@@ -287,14 +289,14 @@ class AuditLogEntry(BaseModel):
         if v is None:
             return None
         if isinstance(v, datetime):
-            return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+            return v if v.tzinfo else v.replace(tzinfo=UTC)
         if isinstance(v, (int, float)):
             if v > 1e12:
-                return datetime.fromtimestamp(v / 1000, tz=timezone.utc)
-            return datetime.fromtimestamp(v, tz=timezone.utc)
+                return datetime.fromtimestamp(v / 1000, tz=UTC)
+            return datetime.fromtimestamp(v, tz=UTC)
         if isinstance(v, str):
-            dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
-            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+            dt = datetime.fromisoformat(v)
+            return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
         return None
 
     @model_validator(mode="before")
@@ -306,13 +308,35 @@ class AuditLogEntry(BaseModel):
         Examples: hook_id, name, permission, branch, etc.
         """
         known_fields = {
-            "@timestamp", "timestamp", "action", "actor", "actor_id",
-            "actor_ip", "actor_is_bot", "actor_location", "country_code",
-            "org", "org_id", "repo", "repo_id", "public_repo", "visibility",
-            "user", "user_id", "team", "business", "business_id",
-            "operation_type", "user_agent", "request_id",
-            "_document_id", "document_id", "created_at",
-            "programmatic_access_type", "token_scopes", "oauth_application_id",
+            "@timestamp",
+            "timestamp",
+            "action",
+            "actor",
+            "actor_id",
+            "actor_ip",
+            "actor_is_bot",
+            "actor_location",
+            "country_code",
+            "org",
+            "org_id",
+            "repo",
+            "repo_id",
+            "public_repo",
+            "visibility",
+            "user",
+            "user_id",
+            "team",
+            "business",
+            "business_id",
+            "operation_type",
+            "user_agent",
+            "request_id",
+            "_document_id",
+            "document_id",
+            "created_at",
+            "programmatic_access_type",
+            "token_scopes",
+            "oauth_application_id",
             "extra_data",
         }
         extra = {k: v for k, v in values.items() if k not in known_fields}
@@ -434,13 +458,13 @@ class AuditLogBatch(BaseModel):
     entries: list[AuditLogEntry] = Field(default_factory=list)
 
     @classmethod
-    def from_json_lines(cls, lines: list[dict[str, Any]]) -> "AuditLogBatch":
+    def from_json_lines(cls, lines: list[dict[str, Any]]) -> AuditLogBatch:
         """Create batch from list of JSON objects (NDJSON format)."""
         entries = [AuditLogEntry.model_validate(line) for line in lines]
         return cls(entries=entries)
 
     @classmethod
-    def from_json_array(cls, data: list[dict[str, Any]]) -> "AuditLogBatch":
+    def from_json_array(cls, data: list[dict[str, Any]]) -> AuditLogBatch:
         """Create batch from JSON array."""
         return cls.from_json_lines(data)
 
@@ -471,17 +495,17 @@ class AuditLogBatch(BaseModel):
         """Get unique actions in this batch."""
         return {e.action for e in self.entries}
 
-    def filter_by_action(self, action_pattern: str) -> "AuditLogBatch":
+    def filter_by_action(self, action_pattern: str) -> AuditLogBatch:
         """Filter entries by action pattern."""
         filtered = [e for e in self.entries if action_pattern in e.action]
         return AuditLogBatch(entries=filtered)
 
-    def filter_by_actor(self, actor: str) -> "AuditLogBatch":
+    def filter_by_actor(self, actor: str) -> AuditLogBatch:
         """Filter entries by actor."""
         filtered = [e for e in self.entries if e.actor == actor]
         return AuditLogBatch(entries=filtered)
 
-    def filter_dangerous(self) -> "AuditLogBatch":
+    def filter_dangerous(self) -> AuditLogBatch:
         """Get only dangerous actions."""
         filtered = [e for e in self.entries if e.is_dangerous_action()]
         return AuditLogBatch(entries=filtered)

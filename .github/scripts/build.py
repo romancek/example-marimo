@@ -19,7 +19,6 @@ Usage:
 
 import subprocess
 from pathlib import Path
-from typing import Union
 
 import fire
 import jinja2
@@ -62,7 +61,7 @@ def _export_html_wasm(
 
         # Run marimo export command
         logger.debug(f"Running command: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
         logger.info(f"Successfully exported {notebook_path}")
         return True
 
@@ -216,10 +215,12 @@ def _export_folder(
     notebook_data = []
     for nb in sorted(notebooks):
         if _export_html_wasm(nb, output_dir, as_app=as_app):
-            notebook_data.append({
-                "display_name": nb.stem.replace("_", " ").title(),
-                "html_path": str(nb.with_suffix(".html")),
-            })
+            notebook_data.append(
+                {
+                    "display_name": nb.stem.replace("_", " ").title(),
+                    "html_path": str(nb.with_suffix(".html")),
+                }
+            )
 
     logger.info(
         f"Successfully exported {len(notebook_data)} out of {len(notebooks)} files from {folder}"
@@ -228,7 +229,7 @@ def _export_folder(
 
 
 def main(
-    output_dir: Union[str, Path] = "_site",
+    output_dir: str | Path = "_site",
 ) -> None:
     """Main function to export marimo notebooks.
 

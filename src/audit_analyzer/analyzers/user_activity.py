@@ -10,14 +10,10 @@ Analyzes per-user patterns including:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from audit_analyzer.analyzers.base import BaseAnalyzer
 from audit_analyzer.utils.constants import KNOWN_BOT_PATTERNS
-
-if TYPE_CHECKING:
-    import pandas as pd
-    import polars as pl
 
 
 class UserActivityAnalyzer(BaseAnalyzer):
@@ -157,7 +153,9 @@ class UserActivityAnalyzer(BaseAnalyzer):
         else:
             df = df.copy()
             df["date"] = df[self._timestamp_col].dt.date
-            return df.groupby("date").size().reset_index(name="count").sort_values("date")
+            return (
+                df.groupby("date").size().reset_index(name="count").sort_values("date")
+            )
 
     def _filter_bots(self) -> Any:
         """Filter out known bot accounts."""

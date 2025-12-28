@@ -31,17 +31,17 @@ classifiers = [
 dependencies = [
     # ノートブック環境
     "marimo>=0.18.0",
-    
+
     # データ処理（サーバー版）
     "polars>=1.18.0",        # 高速DataFrame（WASM非対応）
     "duckdb>=1.2.0",         # 分析用DB（WASM非対応）
-    
+
     # データバリデーション
     "pydantic>=2.10.0",      # Pyodide対応
-    
+
     # 可視化
     "altair>=5.5.0",         # Pyodide対応、Vega-Lite基盤
-    
+
     # ユーティリティ
     "python-dateutil>=2.9.0",
     "orjson>=3.10.0",        # 高速JSON（大規模データ用）
@@ -104,12 +104,18 @@ build-backend = "hatchling.build"
 packages = ["src/audit_analyzer"]
 
 # ============================================================
-# uv Configuration
+# Dependency Groups (PEP 735)
 # ============================================================
-[tool.uv]
-# 開発時にインストールするオプショナル依存関係
-dev-dependencies = [
-    "audit-analyzer[dev,test]",
+[dependency-groups]
+dev = [
+    "ruff>=0.8.0",
+    "pre-commit>=4.0.0",
+    "mypy>=1.13.0",
+    "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",
+    "pytest-asyncio>=0.24.0",
+    "hypothesis>=6.120.0",
+    "polyfactory>=2.18.0",
 ]
 
 # ============================================================
@@ -143,11 +149,22 @@ ignore = [
     "E501",   # line too long (formatterに任せる)
     "PLR0913", # too many arguments
     "PLR2004", # magic value comparison
+    "PLC0415", # import not at top level (遅延インポートを許可)
+    "PERF401", # list.extend vs append (可読性優先)
+    "PLW2901", # for loop variable overwritten (意図的)
+    "SIM117",  # nested with (可読性優先)
+    "SIM108",  # ternary operator (可読性優先)
+    "SIM103",  # return condition directly (可読性優先)
+    "TC003",   # type-checking block (シンプルさ優先)
+    "B018",    # useless expression (marimoのUI要素に必要)
+    "RUF001",  # ambiguous unicode (日本語の括弧等を許可)
+    "UP038",   # isinstance with tuple (可読性優先)
+    "PTH123",  # open() vs Path.open() (シンプルさ優先)
 ]
 
 [tool.ruff.lint.per-file-ignores]
 # テストではassertやmagic valueを許可
-"tests/**/*.py" = ["S101", "PLR2004", "ARG001"]
+"tests/**/*.py" = ["S101", "PLR2004", "ARG001", "ERA001"]
 # ノートブックでは未使用変数を許可（marimo UIバインディング用）
 "notebooks/**/*.py" = ["F841", "ARG001"]
 
@@ -258,5 +275,12 @@ disallow_incomplete_defs = false
 # Bandit Configuration (Security)
 # ============================================================
 [tool.bandit]
-exclude_dirs = ["tests", "notebooks"]
-skips = ["B101"]  # assert文を許可（テスト用）
+exclude_dirs = ["tests", "notebooks", "scripts"]
+skips = [
+    "B101",   # assert文を許可（テスト用）
+    "B311",   # random使用を許可（テストデータ生成用）
+    "B105",   # 文字列定数を許可（アクション名定義）
+    "B608",   # DuckDBのread_json_autoでファイルパス使用（意図的）
+    "B404",   # subprocess使用を許可（ビルドスクリプト用）
+    "B603",   # subprocess呼び出しを許可（ビルドスクリプト用）
+]

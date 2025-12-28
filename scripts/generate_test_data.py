@@ -20,7 +20,7 @@ import argparse
 import json
 import random
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -60,7 +60,11 @@ BOT_USERS = [
 ]
 
 # Suspicious user for anomaly patterns
-SUSPICIOUS_USER = {"name": "suspicious-user", "id": 3001, "ip_pool": ["203.0.113.1", "198.51.100.1"]}
+SUSPICIOUS_USER = {
+    "name": "suspicious-user",
+    "id": 3001,
+    "ip_pool": ["203.0.113.1", "198.51.100.1"],
+}
 
 # Repository pool
 REPOSITORIES = [
@@ -155,7 +159,7 @@ SUSPICIOUS_COUNTRIES = [
 
 def weighted_choice(choices: list[tuple[str, float]]) -> str:
     """Select a random item based on weights."""
-    items, weights = zip(*choices)
+    items, weights = zip(*choices, strict=False)
     return random.choices(items, weights=weights, k=1)[0]
 
 
@@ -200,7 +204,7 @@ def generate_timestamp(
     minute = random.randint(0, 59)
     second = random.randint(0, 59)
 
-    return base_time.replace(hour=hour, minute=minute, second=second, tzinfo=timezone.utc)
+    return base_time.replace(hour=hour, minute=minute, second=second, tzinfo=UTC)
 
 
 def generate_document_id() -> str:
@@ -323,10 +327,10 @@ def generate_bulk_operation_events(
     Simulates a user performing 60+ operations in 5 minutes.
     """
     events = []
-    user = random.choice(ADMIN_USERS + [SUSPICIOUS_USER])
+    user = random.choice([*ADMIN_USERS, SUSPICIOUS_USER])
     action = random.choice(["git.clone", "repo.download_zip", "git.fetch"])
 
-    for i in range(count):
+    for _ in range(count):
         # Events within 5 minutes
         offset_seconds = random.randint(0, 300)
         timestamp = base_timestamp + timedelta(seconds=offset_seconds)
@@ -517,7 +521,7 @@ def generate_test_data(
         List of audit log events sorted by timestamp
     """
     if start_date is None:
-        start_date = datetime.now(timezone.utc) - timedelta(days=days_span)
+        start_date = datetime.now(UTC) - timedelta(days=days_span)
 
     events: list[dict[str, Any]] = []
     anomaly_count = int(count * anomaly_ratio)
@@ -555,7 +559,9 @@ def generate_test_data(
     for _ in range(dangerous_count):
         days_offset = random.randint(0, days_span - 1)
         base_time = start_date + timedelta(days=days_offset)
-        timestamp = generate_timestamp(base_time, business_hours=random.choice([True, False]))
+        timestamp = generate_timestamp(
+            base_time, business_hours=random.choice([True, False])
+        )
         events.append(generate_dangerous_action_event(timestamp))
 
     # Weekend events (20% of anomalies)
@@ -604,8 +610,8 @@ def print_summary(events: list[dict[str, Any]]) -> None:
 
     # Time range
     timestamps = [e["@timestamp"] for e in events]
-    start = datetime.fromtimestamp(min(timestamps) / 1000, tz=timezone.utc)
-    end = datetime.fromtimestamp(max(timestamps) / 1000, tz=timezone.utc)
+    start = datetime.fromtimestamp(min(timestamps) / 1000, tz=UTC)
+    end = datetime.fromtimestamp(max(timestamps) / 1000, tz=UTC)
     print(f"Time range: {start.date()} to {end.date()}")
 
     # Action distribution
@@ -632,18 +638,19 @@ def print_summary(events: list[dict[str, Any]]) -> None:
 
     # Anomaly indicators
     late_night = sum(
-        1 for e in events
-        if datetime.fromtimestamp(e["@timestamp"] / 1000, tz=timezone.utc).hour >= 22
-        or datetime.fromtimestamp(e["@timestamp"] / 1000, tz=timezone.utc).hour < 6
+        1
+        for e in events
+        if datetime.fromtimestamp(e["@timestamp"] / 1000, tz=UTC).hour >= 22
+        or datetime.fromtimestamp(e["@timestamp"] / 1000, tz=UTC).hour < 6
     )
     dangerous = sum(1 for e in events if e["action"] in DANGEROUS_ACTIONS)
     weekend = sum(
-        1 for e in events
-        if datetime.fromtimestamp(e["@timestamp"] / 1000, tz=timezone.utc).weekday() >= 5
+        1
+        for e in events
+        if datetime.fromtimestamp(e["@timestamp"] / 1000, tz=UTC).weekday() >= 5
     )
     suspicious_country = sum(
-        1 for e in events
-        if e.get("country_code") in ["RU", "CN", "KP"]
+        1 for e in events if e.get("country_code") in ["RU", "CN", "KP"]
     )
 
     print("\nAnomaly indicators:")
@@ -664,40 +671,42 @@ def main() -> None:
         description="Generate realistic GitHub Audit Log test data"
     )
     parser.add_argument(
-        "--count", "-n",
+        "--count",
+        "-n",
         type=int,
         default=10000,
-        help="Number of events to generate (default: 10000)"
+        help="Number of events to generate (default: 10000)",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=Path,
         default=Path("data/test_audit_log.ndjson"),
-        help="Output file path (default: data/test_audit_log.ndjson)"
+        help="Output file path (default: data/test_audit_log.ndjson)",
     )
     parser.add_argument(
-        "--format", "-f",
+        "--format",
+        "-f",
         choices=["json", "ndjson"],
         default="ndjson",
-        help="Output format (default: ndjson)"
+        help="Output format (default: ndjson)",
     )
     parser.add_argument(
-        "--days", "-d",
+        "--days",
+        "-d",
         type=int,
         default=90,
-        help="Number of days to span (default: 90)"
+        help="Number of days to span (default: 90)",
     )
     parser.add_argument(
-        "--anomaly-ratio", "-a",
+        "--anomaly-ratio",
+        "-a",
         type=float,
         default=0.05,
-        help="Ratio of anomalous events (default: 0.05)"
+        help="Ratio of anomalous events (default: 0.05)",
     )
     parser.add_argument(
-        "--seed", "-s",
-        type=int,
-        default=None,
-        help="Random seed for reproducibility"
+        "--seed", "-s", type=int, default=None, help="Random seed for reproducibility"
     )
 
     args = parser.parse_args()

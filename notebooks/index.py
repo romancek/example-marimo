@@ -16,38 +16,39 @@ Navigate to different analysis views from here.
 
 import marimo
 
-__generated_with = "0.18.0"
+
+__generated_with = "0.18.4"
 app = marimo.App(width="medium")
 
 
 @app.cell
 def _():
     import marimo as mo
+
     return (mo,)
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
-        # 🔍 GitHub Organization Audit Log Analyzer
+    mo.md(r"""
+    # 🔍 GitHub Organization Audit Log Analyzer
 
-        GitHub OrganizationのAudit Logを分析するためのインタラクティブツールです。
+    GitHub OrganizationのAudit Logを分析するためのインタラクティブツールです。
 
-        ## 📊 分析メニュー
+    ## 📊 分析メニュー
 
-        以下のノートブックから分析を開始できます：
-        """
-    )
-    return
+    以下のノートブックから分析を開始できます：
+    """)
 
 
 @app.cell
 def _(mo):
     # Navigation cards
-    nav_cards = mo.vstack([
-        mo.hstack([
-            mo.md("""
+    nav_cards = mo.vstack(
+        [
+            mo.hstack(
+                [
+                    mo.md("""
             ### 👥 ユーザー別アクティビティ
             [`user_activity.py`](./user_activity.py)
 
@@ -55,7 +56,7 @@ def _(mo):
             - 最もアクティブなユーザー
             - ユーザーごとのアクション種別分布
             """),
-            mo.md("""
+                    mo.md("""
             ### 📈 時系列分析
             [`time_analysis.py`](./time_analysis.py)
 
@@ -63,9 +64,11 @@ def _(mo):
             - 日次/週次/月次トレンド
             - ピーク時間帯の特定
             """),
-        ]),
-        mo.hstack([
-            mo.md("""
+                ]
+            ),
+            mo.hstack(
+                [
+                    mo.md("""
             ### 🔎 アクション追跡
             [`action_tracker.py`](./action_tracker.py)
 
@@ -73,7 +76,7 @@ def _(mo):
             - 特定イベントの詳細検索
             - リポジトリ/チーム別集計
             """),
-            mo.md("""
+                    mo.md("""
             ### ⚠️ 異常検知
             [`anomaly_detection.py`](./anomaly_detection.py)
 
@@ -81,24 +84,22 @@ def _(mo):
             - 大量操作の検出
             - 危険なアクションの警告
             """),
-        ]),
-    ])
+                ]
+            ),
+        ]
+    )
     nav_cards
-    return (nav_cards,)
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
-        ---
+    mo.md(r"""
+    ---
 
-        ## 📁 データの読み込み
+    ## 📁 データの読み込み
 
-        分析を始めるには、まずAudit LogのJSONファイルをアップロードしてください。
-        """
-    )
-    return
+    分析を始めるには、まずAudit LogのJSONファイルをアップロードしてください。
+    """)
 
 
 @app.cell
@@ -106,7 +107,7 @@ def _(mo):
     file_upload = mo.ui.file(
         filetypes=[".json", ".ndjson"],
         multiple=False,
-        label="Audit Logファイルをアップロード"
+        label="Audit Logファイルをアップロード",
     )
     file_upload
     return (file_upload,)
@@ -125,32 +126,28 @@ def _(file_upload, mo):
         """)
     else:
         mo.md("⏳ ファイルを選択してください...")
-    return (file_info,)
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
-        ---
+    mo.md(r"""
+    ---
 
-        ## ℹ️ このツールについて
+    ## ℹ️ このツールについて
 
-        このツールは以下の技術スタックで構築されています：
+    このツールは以下の技術スタックで構築されています：
 
-        - **marimo**: リアクティブノートブック
-        - **Polars**: 高速DataFrame処理
-        - **DuckDB**: 分析用データベース（大規模データ用）
-        - **Altair**: インタラクティブ可視化
-        - **Pydantic**: データバリデーション
+    - **marimo**: リアクティブノートブック
+    - **Polars**: 高速DataFrame処理
+    - **DuckDB**: 分析用データベース（大規模データ用）
+    - **Altair**: インタラクティブ可視化
+    - **Pydantic**: データバリデーション
 
-        ### データ規模
+    ### データ規模
 
-        - 最大330万イベント（3年分）に対応
-        - メモリ効率の良いストリーミング処理をサポート
-        """
-    )
-    return
+    - 最大330万イベント（3年分）に対応
+    - メモリ効率の良いストリーミング処理をサポート
+    """)
 
 
 if __name__ == "__main__":

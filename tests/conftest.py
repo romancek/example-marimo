@@ -6,9 +6,10 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generator
+from typing import TYPE_CHECKING, Any
 
 import pytest
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -121,16 +122,18 @@ def polars_df(sample_audit_entries: list[dict[str, Any]]):
     # Normalize the data
     normalized = []
     for entry in sample_audit_entries:
-        normalized.append({
-            "timestamp": datetime.fromtimestamp(entry["@timestamp"] / 1000),
-            "action": entry["action"],
-            "actor": entry["actor"],
-            "actor_ip": entry.get("actor_ip"),
-            "org": entry["org"],
-            "repo": entry.get("repo"),
-            "user": entry.get("user"),
-            "team": entry.get("team"),
-        })
+        normalized.append(
+            {
+                "timestamp": datetime.fromtimestamp(entry["@timestamp"] / 1000),
+                "action": entry["action"],
+                "actor": entry["actor"],
+                "actor_ip": entry.get("actor_ip"),
+                "org": entry["org"],
+                "repo": entry.get("repo"),
+                "user": entry.get("user"),
+                "team": entry.get("team"),
+            }
+        )
 
     return pl.DataFrame(normalized)
 
@@ -144,16 +147,18 @@ def pandas_df(sample_audit_entries: list[dict[str, Any]]):
     # Normalize the data
     normalized = []
     for entry in sample_audit_entries:
-        normalized.append({
-            "timestamp": datetime.fromtimestamp(entry["@timestamp"] / 1000),
-            "action": entry["action"],
-            "actor": entry["actor"],
-            "actor_ip": entry.get("actor_ip"),
-            "org": entry["org"],
-            "repo": entry.get("repo"),
-            "user": entry.get("user"),
-            "team": entry.get("team"),
-        })
+        normalized.append(
+            {
+                "timestamp": datetime.fromtimestamp(entry["@timestamp"] / 1000),
+                "action": entry["action"],
+                "actor": entry["actor"],
+                "actor_ip": entry.get("actor_ip"),
+                "org": entry["org"],
+                "repo": entry.get("repo"),
+                "user": entry.get("user"),
+                "team": entry.get("team"),
+            }
+        )
 
     return pd.DataFrame(normalized)
 
@@ -194,7 +199,7 @@ def sample_ndjson_file(
 
 
 @pytest.fixture
-def generate_large_dataset() -> "Callable[[int], list[dict[str, Any]]]":
+def generate_large_dataset() -> Callable[[int], list[dict[str, Any]]]:
     """Factory fixture to generate large datasets for testing."""
 
     def _generate(size: int) -> list[dict[str, Any]]:
@@ -220,14 +225,16 @@ def generate_large_dataset() -> "Callable[[int], list[dict[str, Any]]]":
 
         for i in range(size):
             timestamp = base_time + timedelta(hours=i)
-            entries.append({
-                "@timestamp": int(timestamp.timestamp() * 1000),
-                "action": random.choice(actions),
-                "actor": random.choice(actors),
-                "actor_ip": f"10.0.0.{random.randint(1, 255)}",
-                "org": "test-org",
-                "repo": random.choice(repos),
-            })
+            entries.append(
+                {
+                    "@timestamp": int(timestamp.timestamp() * 1000),
+                    "action": random.choice(actions),
+                    "actor": random.choice(actors),
+                    "actor_ip": f"10.0.0.{random.randint(1, 255)}",
+                    "org": "test-org",
+                    "repo": random.choice(repos),
+                }
+            )
 
         return entries
 

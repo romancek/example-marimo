@@ -18,15 +18,17 @@ Analyze per-user patterns in the audit log including:
 
 import marimo
 
+
 __generated_with = "0.18.0"
 app = marimo.App(width="medium")
 
 
 @app.cell
 def _():
+    import altair as alt
     import marimo as mo
     import polars as pl
-    import altair as alt
+
     return alt, mo, pl
 
 
@@ -39,7 +41,6 @@ def _(mo):
         このノートブックでは、Audit Logをユーザー別に分析します。
         """
     )
-    return
 
 
 @app.cell
@@ -48,7 +49,7 @@ def _(mo):
     file_upload = mo.ui.file(
         filetypes=[".json", ".ndjson"],
         multiple=False,
-        label="Audit Logファイルをアップロード"
+        label="Audit Logファイルをアップロード",
     )
     file_upload
     return (file_upload,)
@@ -84,13 +85,15 @@ def _(file_upload, mo, pl):
             else:
                 ts = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
 
-            records.append({
-                "timestamp": ts,
-                "action": entry.get("action", "unknown"),
-                "actor": entry.get("actor", "unknown"),
-                "org": entry.get("org", "unknown"),
-                "repo": entry.get("repo"),
-            })
+            records.append(
+                {
+                    "timestamp": ts,
+                    "action": entry.get("action", "unknown"),
+                    "actor": entry.get("actor", "unknown"),
+                    "org": entry.get("org", "unknown"),
+                    "repo": entry.get("repo"),
+                }
+            )
 
         df = pl.DataFrame(records)
         mo.md(f"✅ {len(df)} イベントを読み込みました")
@@ -102,7 +105,6 @@ def _(file_upload, mo, pl):
 @app.cell
 def _(df, mo):
     mo.stop(df is None, mo.md("データを読み込んでください"))
-    return
 
 
 @app.cell
@@ -128,16 +130,9 @@ def _(df, mo, pl):
 def _(mo):
     # Controls
     top_n_slider = mo.ui.slider(
-        start=5,
-        stop=50,
-        step=5,
-        value=10,
-        label="表示するユーザー数"
+        start=5, stop=50, step=5, value=10, label="表示するユーザー数"
     )
-    exclude_bots = mo.ui.checkbox(
-        value=True,
-        label="Botを除外"
-    )
+    exclude_bots = mo.ui.checkbox(value=True, label="Botを除外")
     mo.hstack([top_n_slider, exclude_bots])
     return exclude_bots, top_n_slider
 
@@ -147,9 +142,7 @@ def _(alt, df, exclude_bots, mo, pl, top_n_slider):
     # Filter bots if needed
     filtered_df = df
     if exclude_bots.value:
-        filtered_df = df.filter(
-            ~pl.col("actor").str.contains(r"\[bot\]")
-        )
+        filtered_df = df.filter(~pl.col("actor").str.contains(r"\[bot\]"))
 
     # Get top users
     top_users = (
@@ -160,15 +153,18 @@ def _(alt, df, exclude_bots, mo, pl, top_n_slider):
     )
 
     # Create chart
-    chart = alt.Chart(top_users.to_pandas()).mark_bar().encode(
-        x=alt.X("event_count:Q", title="イベント数"),
-        y=alt.Y("actor:N", sort="-x", title="ユーザー"),
-        color=alt.Color("event_count:Q", scale=alt.Scale(scheme="blues")),
-        tooltip=["actor", "event_count"]
-    ).properties(
-        title=f"Top {top_n_slider.value} アクティブユーザー",
-        width=600,
-        height=400
+    chart = (
+        alt.Chart(top_users.to_pandas())
+        .mark_bar()
+        .encode(
+            x=alt.X("event_count:Q", title="イベント数"),
+            y=alt.Y("actor:N", sort="-x", title="ユーザー"),
+            color=alt.Color("event_count:Q", scale=alt.Scale(scheme="blues")),
+            tooltip=["actor", "event_count"],
+        )
+        .properties(
+            title=f"Top {top_n_slider.value} アクティブユーザー", width=600, height=400
+        )
     )
 
     mo.md(f"## 🏆 最もアクティブなユーザー Top {top_n_slider.value}")
@@ -178,7 +174,6 @@ def _(alt, df, exclude_bots, mo, pl, top_n_slider):
 @app.cell
 def _(chart, mo):
     mo.ui.altair_chart(chart)
-    return
 
 
 @app.cell
@@ -198,8 +193,7 @@ def _(filtered_df, mo, pl):
 def _(mo, top_users):
     # User selector
     user_selector = mo.ui.dropdown(
-        options=top_users["actor"].to_list(),
-        label="ユーザーを選択"
+        options=top_users["actor"].to_list(), label="ユーザーを選択"
     )
     user_selector
     return (user_selector,)
@@ -208,19 +202,20 @@ def _(mo, top_users):
 @app.cell
 def _(action_breakdown, alt, mo, pl, user_selector):
     if user_selector.value:
-        user_actions = action_breakdown.filter(
-            pl.col("actor") == user_selector.value
-        )
+        user_actions = action_breakdown.filter(pl.col("actor") == user_selector.value)
 
-        action_chart = alt.Chart(user_actions.to_pandas()).mark_bar().encode(
-            x=alt.X("count:Q", title="回数"),
-            y=alt.Y("action:N", sort="-x", title="アクション"),
-            color=alt.Color("action:N", legend=None),
-            tooltip=["action", "count"]
-        ).properties(
-            title=f"{user_selector.value} のアクション内訳",
-            width=600,
-            height=300
+        action_chart = (
+            alt.Chart(user_actions.to_pandas())
+            .mark_bar()
+            .encode(
+                x=alt.X("count:Q", title="回数"),
+                y=alt.Y("action:N", sort="-x", title="アクション"),
+                color=alt.Color("action:N", legend=None),
+                tooltip=["action", "count"],
+            )
+            .properties(
+                title=f"{user_selector.value} のアクション内訳", width=600, height=300
+            )
         )
 
         mo.ui.altair_chart(action_chart)
