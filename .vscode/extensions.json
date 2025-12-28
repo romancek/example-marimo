@@ -1,0 +1,54 @@
+{
+  "recommendations": [
+    // === Python開発 ===
+    // Python言語サポート
+    "ms-python.python",
+    // Pylance（型チェック・IntelliSense）
+    "ms-python.vscode-pylance",
+    // Python Debugger
+    "ms-python.debugpy",
+    // === コード品質 ===
+    // Ruff（リンター・フォーマッター）
+    "charliermarsh.ruff",
+    // Mypy Type Checker
+    "ms-python.mypy-type-checker",
+    // === marimo ===
+    // marimo公式拡張機能
+    "marimo-team.vscode-marimo",
+    // === AI/Copilot ===
+    // GitHub Copilot
+    "github.copilot",
+    // GitHub Copilot Chat
+    "github.copilot-chat",
+    // === データ/ノートブック ===
+    // Jupyter（参照用）
+    "ms-toolsai.jupyter",
+    // データプレビュー
+    "RandomFractalsInc.vscode-data-preview",
+    // === Git ===
+    // GitLens
+    "eamodio.gitlens",
+    // Git Graph
+    "mhutchie.git-graph",
+    // === ファイル操作 ===
+    // JSON整形
+    "mohsen1.prettify-json",
+    // TOML言語サポート
+    "tamasfe.even-better-toml",
+    // Markdown Preview Enhanced
+    "shd101wyy.markdown-preview-enhanced",
+    // === 開発効率化 ===
+    // Error Lens（エラーのインライン表示）
+    "usernamehw.errorlens",
+    // TODO Highlight
+    "wayou.vscode-todo-highlight",
+    // Indent Rainbow
+    "oderwat.indent-rainbow"
+  ],
+  "unwantedRecommendations": [
+    // 競合する可能性のある拡張機能
+    "ms-python.black-formatter",
+    "ms-python.autopep8",
+    "ms-python.isort"
+  ]
+}

@@ -1,0 +1,139 @@
+# .pre-commit-config.yaml
+# Pre-commit hooks for audit-analyzer
+#
+# インストール:
+#   uv run pre-commit install
+#   uv run pre-commit install --hook-type commit-msg
+#
+# 手動実行:
+#   uv run pre-commit run --all-files
+#
+# 更新:
+#   uv run pre-commit autoupdate
+
+default_language_version:
+  python: python3.12
+
+# デフォルトで全ステージで実行
+default_stages: [pre-commit]
+
+repos:
+  # ============================================================
+  # General hooks - 基本的なファイルチェック
+  # ============================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # 末尾の空白を削除
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      # ファイル末尾に改行を追加
+      - id: end-of-file-fixer
+      # YAML構文チェック
+      - id: check-yaml
+        args: [--unsafe]  # カスタムタグを許可
+      # JSON構文チェック
+      - id: check-json
+      # TOML構文チェック
+      - id: check-toml
+      # 大きなファイルの追加を防止
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      # マージコンフリクトマーカーを検出
+      - id: check-merge-conflict
+      # 大文字小文字の違いのみのファイル名を検出（Windows互換性）
+      - id: check-case-conflict
+      # 秘密鍵の誤コミットを防止
+      - id: detect-private-key
+      # debugger文を検出
+      - id: debug-statements
+      # 改行コードをLFに統一
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+      # Python ASTが有効かチェック
+      - id: check-ast
+      # 実行可能なテキストファイルにshebangがあるかチェック
+      - id: check-executables-have-shebangs
+      # shebangがあるファイルが実行可能かチェック
+      - id: check-shebang-scripts-are-executable
+
+  # ============================================================
+  # Ruff - 高速Python linter/formatter（Rust製）
+  # ============================================================
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      # Linter - 問題の検出と自動修正
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi, jupyter]
+      # Formatter - コードフォーマット
+      - id: ruff-format
+        types_or: [python, pyi, jupyter]
+
+  # ============================================================
+  # Type checking - mypy による型チェック
+  # ============================================================
+  # 注意: pre-commitでのmypyは遅いため、CIでのチェックを推奨
+  # ローカルでは `uv run mypy src/` で手動実行
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - pydantic>=2.10.0
+          - types-python-dateutil
+        args: [--config-file=pyproject.toml]
+        pass_filenames: false
+        # src配下のみチェック（notebooksは除外）
+        files: ^src/
+        # 時間がかかるため、デフォルトでは手動実行のみ
+        stages: [manual]
+
+  # ============================================================
+  # Security - セキュリティチェック
+  # ============================================================
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.0
+    hooks:
+      - id: bandit
+        args: [-c, pyproject.toml]
+        additional_dependencies: ["bandit[toml]"]
+        exclude: ^tests/
+
+  # ============================================================
+  # Commit message - コミットメッセージのlint
+  # ============================================================
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.1.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
+
+  # ============================================================
+  # YAML lint - YAMLファイルの詳細チェック
+  # ============================================================
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: [-d, "{extends: relaxed, rules: {line-length: {max: 120}}}"]
+
+  # ============================================================
+  # Markdown lint - Markdownファイルのチェック
+  # ============================================================
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.43.0
+    hooks:
+      - id: markdownlint
+        args: [--fix, --disable, MD013, MD033, MD041, --]
+
+# ============================================================
+# pre-commit.ci 設定
+# ============================================================
+ci:
+  autofix_prs: true
+  autofix_commit_msg: "style: auto-fix by pre-commit hooks"
+  autoupdate_schedule: monthly
+  # CIではmypyをスキップ（別途GitHub Actionsで実行）
+  skip: [mypy]
