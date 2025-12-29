@@ -1,27 +1,49 @@
 {
+  // ===========================================
+  // VS Code 推奨拡張機能設定
+  // このプロジェクトで使用する拡張機能の推奨リスト
+  // ===========================================
   "recommendations": [
-    "ms-python.python",
-    "ms-python.vscode-pylance",
-    "ms-python.debugpy",
-    "charliermarsh.ruff",
-    "ms-python.mypy-type-checker",
-    "marimo-team.vscode-marimo",
-    "github.copilot",
-    "github.copilot-chat",
-    "ms-toolsai.jupyter",
-    "RandomFractalsInc.vscode-data-preview",
-    "eamodio.gitlens",
-    "mhutchie.git-graph",
-    "mohsen1.prettify-json",
-    "tamasfe.even-better-toml",
-    "shd101wyy.markdown-preview-enhanced",
-    "usernamehw.errorlens",
-    "wayou.vscode-todo-highlight",
-    "oderwat.indent-rainbow"
+    // --- Python開発 ---
+    "ms-python.python",           // Python言語サポート
+    "ms-python.vscode-pylance",   // 高速な型チェック・IntelliSense
+    "ms-python.debugpy",          // Pythonデバッガー
+    "charliermarsh.ruff",         // 高速Linter/Formatter (Rust製)
+    "ms-python.mypy-type-checker", // 静的型チェック
+
+    // --- marimo ---
+    "marimo-team.vscode-marimo",  // marimoノートブックサポート
+
+    // --- AI/Copilot ---
+    "github.copilot",             // GitHub Copilot
+    "github.copilot-chat",        // Copilot Chat
+
+    // --- データ分析 ---
+    "ms-toolsai.jupyter",         // Jupyterノートブック
+    "RandomFractalsInc.vscode-data-preview", // データプレビュー
+
+    // --- Git ---
+    "eamodio.gitlens",            // Git履歴・blame表示
+    "mhutchie.git-graph",         // Gitグラフ表示
+
+    // --- ファイル編集 ---
+    "mohsen1.prettify-json",      // JSONフォーマット
+    "tamasfe.even-better-toml",   // TOMLサポート
+    "shd101wyy.markdown-preview-enhanced", // Markdownプレビュー
+
+    // --- 開発効率 ---
+    "usernamehw.errorlens",       // エラーをインラインで表示
+    "wayou.vscode-todo-highlight", // TODO/FIXMEハイライト
+    "oderwat.indent-rainbow"      // インデントを色分け表示
   ],
+
+  // ===========================================
+  // 非推奨の拡張機能
+  // Ruffと競合するため無効化を推奨
+  // ===========================================
   "unwantedRecommendations": [
-    "ms-python.black-formatter",
-    "ms-python.autopep8",
-    "ms-python.isort"
+    "ms-python.black-formatter",  // Ruffで代替
+    "ms-python.autopep8",         // Ruffで代替
+    "ms-python.isort"             // Ruffで代替
   ]
 }

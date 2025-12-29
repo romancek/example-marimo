@@ -1,28 +1,51 @@
 {
+  // ===========================================
+  // Python環境設定
+  // ===========================================
+  // 仮想環境のPythonインタプリタパス
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  // ターミナルで自動的に仮想環境をアクティブ化
   "python.terminal.activateEnvironment": true,
+
+  // --- Pylance (型解析) ---
+  // 型チェックレベル: off | basic | standard | strict
   "python.analysis.typeCheckingMode": "basic",
+  // 自動インポート補完を有効化
   "python.analysis.autoImportCompletions": true,
+  // 関数の戻り値型をインラインで表示
   "python.analysis.inlayHints.functionReturnTypes": true,
+  // 変数の型をインラインで表示
   "python.analysis.inlayHints.variableTypes": true,
+
+  // --- テスト設定 ---
+  // pytestを有効化（このプロジェクトではテストは将来対応）
   "python.testing.pytestEnabled": true,
-  "python.testing.pytestArgs": [
-    "tests"
-  ],
+  "python.testing.pytestArgs": ["tests"],
   "python.testing.unittestEnabled": false,
+
+  // ===========================================
+  // エディタ設定
+  // ===========================================
+  // 保存時に自動フォーマット
   "editor.formatOnSave": true,
+  // 保存時のコードアクション
   "editor.codeActionsOnSave": {
-    "source.fixAll": "explicit",
-    "source.organizeImports": "explicit"
+    "source.fixAll": "explicit",        // 自動修正を適用
+    "source.organizeImports": "explicit" // インポートを整理
   },
-  "editor.rulers": [
-    88,
-    120
-  ],
+  // 行長ガイド: 88文字(Ruff/Black標準), 120文字(最大)
+  "editor.rulers": [88, 120],
+  // インデント: スペース4つ
   "editor.tabSize": 4,
   "editor.insertSpaces": true,
+  // 行の折り返しを無効化
   "editor.wordWrap": "off",
+
+  // ===========================================
+  // Python固有のエディタ設定
+  // ===========================================
   "[python]": {
+    // Ruffをフォーマッタとして使用
     "editor.defaultFormatter": "charliermarsh.ruff",
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
@@ -30,16 +53,36 @@
       "source.organizeImports.ruff": "explicit"
     }
   },
+
+  // ===========================================
+  // Ruff設定 (Linter/Formatter)
+  // ===========================================
+  // 保存時にLintを実行
   "ruff.lint.run": "onSave",
   "ruff.format.args": [],
+  // プロジェクトの仮想環境からRuffを使用
   "ruff.importStrategy": "fromEnvironment",
+
+  // ===========================================
+  // marimo設定 (ノートブック)
+  // ===========================================
   "marimo.pythonPath": "${workspaceFolder}/.venv/bin/python",
   "marimo.marimoPath": "${workspaceFolder}/.venv/bin/marimo",
+  // marimoのターミナル出力を非表示
   "marimo.showTerminal": false,
+
+  // ===========================================
+  // mypy設定 (静的型チェック)
+  // ===========================================
   "mypy-type-checker.importStrategy": "fromEnvironment",
   "mypy-type-checker.args": [
     "--config-file=${workspaceFolder}/pyproject.toml"
   ],
+
+  // ===========================================
+  // ファイル表示設定
+  // ===========================================
+  // エクスプローラーで非表示にするファイル/フォルダ
   "files.exclude": {
     "**/__pycache__": true,
     "**/.pytest_cache": true,
@@ -47,18 +90,21 @@
     "**/.mypy_cache": true,
     "**/.ruff_cache": true,
     "**/*.egg-info": true,
-    ".venv": false
+    ".venv": false  // 仮想環境は表示（デバッグ用）
   },
+  // ファイル監視から除外（パフォーマンス向上）
   "files.watcherExclude": {
     "**/.venv/**": true,
     "**/node_modules/**": true,
     "**/__pycache__/**": true
   },
+  // ファイル拡張子と言語の関連付け
   "files.associations": {
     "*.json": "json",
     "*.ndjson": "json",
     "pyproject.toml": "toml"
   },
+  // 検索から除外するフォルダ
   "search.exclude": {
     "**/.venv": true,
     "**/__pycache__": true,
@@ -67,11 +113,16 @@
     "**/data": true,
     "**/dist": true
   },
+
+  // ===========================================
+  // ファイルタイプ別設定
+  // ===========================================
   "[json]": {
     "editor.defaultFormatter": "vscode.json-language-features",
     "editor.formatOnSave": true,
     "editor.tabSize": 2
   },
+  // JSONC (JSON with Comments) - VS Code設定ファイル用
   "[jsonc]": {
     "editor.defaultFormatter": "vscode.json-language-features",
     "editor.formatOnSave": true,
@@ -85,9 +136,20 @@
     "editor.defaultFormatter": "tamasfe.even-better-toml",
     "editor.formatOnSave": true
   },
+
+  // ===========================================
+  // Git設定
+  // ===========================================
+  // 自動フェッチを有効化
   "git.autofetch": true,
+  // 同期時の確認ダイアログをスキップ
   "git.confirmSync": false,
+  // ステージングなしでコミットを許可
   "git.enableSmartCommit": true,
+
+  // ===========================================
+  // ターミナル環境変数 (Linux/macOS)
+  // ===========================================
   "terminal.integrated.env.linux": {
     "VIRTUAL_ENV": "${workspaceFolder}/.venv",
     "PATH": "${workspaceFolder}/.venv/bin:${env:PATH}"
@@ -96,18 +158,22 @@
     "VIRTUAL_ENV": "${workspaceFolder}/.venv",
     "PATH": "${workspaceFolder}/.venv/bin:${env:PATH}"
   },
-  "errorLens.enabledDiagnosticLevels": [
-    "error",
-    "warning"
-  ],
-  "errorLens.excludeBySource": [
-    "Pylance(reportMissingImports)"
-  ],
+
+  // ===========================================
+  // ErrorLens設定 (インラインエラー表示)
+  // ===========================================
+  "errorLens.enabledDiagnosticLevels": ["error", "warning"],
+  // Pylanceのインポートエラーを除外（仮想環境で解決される場合）
+  "errorLens.excludeBySource": ["Pylance(reportMissingImports)"],
+
+  // ===========================================
+  // GitHub Copilot設定
+  // ===========================================
   "github.copilot.enable": {
     "*": true,
-    "plaintext": false,
+    "plaintext": false,  // プレーンテキストでは無効
     "markdown": true,
-    "scminput": false,
+    "scminput": false,   // コミットメッセージでは無効
     "yaml": true,
     "json": true,
     "jsonc": true,

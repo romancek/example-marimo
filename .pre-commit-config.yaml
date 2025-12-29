@@ -32,8 +32,9 @@ repos:
       # YAML構文チェック
       - id: check-yaml
         args: [--unsafe]  # カスタムタグを許可
-      # JSON構文チェック
+      # JSON構文チェック（.vscode/はJSONCのため除外）
       - id: check-json
+        exclude: ^.vscode/
       # TOML構文チェック
       - id: check-toml
       # 大きなファイルの追加を防止
