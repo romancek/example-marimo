@@ -1,5 +1,5 @@
 # .github/workflows/ci.yml
-# CI Pipeline: Lint, Type Check, Test
+# CI Pipeline: Lint, Validate Notebooks
 #
 # トリガー:
 # - main/developブランチへのpush
@@ -45,7 +45,7 @@ jobs:
 
       - name: 📦 Install dependencies
         run: |
-          uv sync --dev
+          uv sync
 
       - name: 🔍 Run Ruff linter
         run: |
@@ -54,67 +54,6 @@ jobs:
       - name: 🎨 Run Ruff formatter (check mode)
         run: |
           uv run ruff format --check .
-
-  # ============================================================
-  # Type Check Job: mypy による型チェック
-  # ============================================================
-  typecheck:
-    name: 🔬 Type Check (mypy)
-    runs-on: ubuntu-latest
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: 🚀 Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: 📦 Install dependencies
-        run: |
-          uv sync --dev
-
-      - name: 🔬 Run mypy
-        run: |
-          uv run mypy src/
-
-  # ============================================================
-  # Test Job: pytest によるテスト実行
-  # ============================================================
-  test:
-    name: 🧪 Test (pytest)
-    runs-on: ubuntu-latest
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: 🚀 Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: 📦 Install dependencies
-        run: |
-          uv sync --dev
-
-      - name: 🧪 Run tests with coverage
-        run: |
-          uv run pytest --cov=src/audit_analyzer --cov-report=xml --cov-report=term-missing
-
-      - name: 📊 Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-          fail_ci_if_error: false
-          verbose: true
 
   # ============================================================
   # Notebook Validation: marimo ノートブックの構文チェック

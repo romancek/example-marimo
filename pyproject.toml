@@ -85,23 +85,6 @@ all = [
 ]
 
 # ============================================================
-# Entry Points / Scripts
-# ============================================================
-[project.scripts]
-# CLIコマンド（必要に応じて）
-audit-analyzer = "audit_analyzer.cli:main"
-
-# ============================================================
-# Build System
-# ============================================================
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/audit_analyzer"]
-
-# ============================================================
 # Dependency Groups (PEP 735)
 # ============================================================
 [dependency-groups]
@@ -122,7 +105,7 @@ dev = [
 [tool.ruff]
 target-version = "py312"
 line-length = 88
-src = ["src", "notebooks", "tests"]
+src = ["notebooks"]
 
 [tool.ruff.lint]
 select = [
@@ -162,13 +145,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# テストではassertやmagic valueを許可
-"tests/**/*.py" = ["S101", "PLR2004", "ARG001", "ERA001"]
 # ノートブックでは未使用変数を許可（marimo UIバインディング用）
 "notebooks/**/*.py" = ["F841", "ARG001"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["audit_analyzer"]
 force-single-line = false
 lines-after-imports = 2
 
@@ -180,62 +160,7 @@ line-ending = "auto"
 docstring-code-format = true
 
 # ============================================================
-# Pytest Configuration
-# ============================================================
-[tool.pytest.ini_options]
-minversion = "8.0"
-testpaths = ["tests"]
-pythonpath = ["src"]
-# 推奨オプション
-addopts = [
-    "-ra",                    # show extra test summary info
-    "-q",                     # quiet mode
-    "--strict-markers",       # unknown markers are errors
-    "--strict-config",        # warn about unknown config
-    "-x",                     # stop on first failure (開発時)
-    "--tb=short",             # shorter traceback format
-]
-# カスタムマーカー
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "wasm: marks tests for WASM compatibility",
-]
-# asyncioモード
-asyncio_mode = "auto"
-# フィルタリング
-filterwarnings = [
-    "error",
-    "ignore::DeprecationWarning",
-    "ignore::PendingDeprecationWarning",
-]
-
-# ============================================================
-# Coverage Configuration
-# ============================================================
-[tool.coverage.run]
-source = ["src/audit_analyzer"]
-branch = true
-parallel = true
-omit = [
-    "*/__init__.py",
-    "*/conftest.py",
-]
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "raise NotImplementedError",
-    "if TYPE_CHECKING:",
-    "if __name__ == .__main__.:",
-    "@abstractmethod",
-]
-fail_under = 80
-show_missing = true
-
-# ============================================================
-# MyPy Configuration
+# MyPy Configuration (notebooks/用、将来拡張時)
 # ============================================================
 [tool.mypy]
 python_version = "3.12"
@@ -264,17 +189,11 @@ module = [
 ]
 ignore_missing_imports = true
 
-# テストファイルは緩めの設定
-[[tool.mypy.overrides]]
-module = "tests.*"
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-
 # ============================================================
 # Bandit Configuration (Security)
 # ============================================================
 [tool.bandit]
-exclude_dirs = ["tests", "notebooks", "scripts"]
+exclude_dirs = ["notebooks", "scripts"]
 skips = [
     "B101",   # assert文を許可（テスト用）
     "B311",   # random使用を許可（テストデータ生成用）

@@ -52,7 +52,7 @@ wheels = [
 [[package]]
 name = "audit-analyzer"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "altair" },
     { name = "duckdb" },

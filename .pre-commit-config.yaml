@@ -72,25 +72,6 @@ repos:
         types_or: [python, pyi, jupyter]
 
   # ============================================================
-  # Type checking - mypy による型チェック
-  # ============================================================
-  # 注意: pre-commitでのmypyは遅いため、CIでのチェックを推奨
-  # ローカルでは `uv run mypy src/` で手動実行
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.13.0
-    hooks:
-      - id: mypy
-        additional_dependencies:
-          - pydantic>=2.10.0
-          - types-python-dateutil
-        args: [--config-file=pyproject.toml]
-        pass_filenames: false
-        # src配下のみチェック（notebooksは除外）
-        files: ^src/
-        # 時間がかかるため、デフォルトでは手動実行のみ
-        stages: [manual]
-
-  # ============================================================
   # Security - セキュリティチェック
   # ============================================================
   - repo: https://github.com/PyCQA/bandit
@@ -99,7 +80,6 @@ repos:
       - id: bandit
         args: [-c, pyproject.toml]
         additional_dependencies: ["bandit[toml]"]
-        exclude: ^tests/
 
   # ============================================================
   # Commit message - コミットメッセージのlint
@@ -136,5 +116,3 @@ ci:
   autofix_prs: true
   autofix_commit_msg: "style: auto-fix by pre-commit hooks"
   autoupdate_schedule: monthly
-  # CIではmypyをスキップ（別途GitHub Actionsで実行）
-  skip: [mypy]
