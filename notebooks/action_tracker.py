@@ -18,7 +18,7 @@ Track and filter specific actions in the audit log:
 import marimo
 
 
-__generated_with = "0.18.0"
+__generated_with = "0.18.4"
 app = marimo.App(width="medium")
 
 
@@ -33,13 +33,11 @@ def _():
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
-        # 🔎 アクション追跡
+    mo.md(r"""
+    # 🔎 アクション追跡
 
-        特定のアクションを追跡・フィルタリングします。
-        """
-    )
+    特定のアクションを追跡・フィルタリングします。
+    """)
 
 
 @app.cell
@@ -77,7 +75,7 @@ def _(file_upload, mo, pl):
                 else:
                     ts = datetime.fromtimestamp(ts)
             else:
-                ts = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+                ts = datetime.fromisoformat(str(ts))
 
             records.append(
                 {
@@ -95,7 +93,7 @@ def _(file_upload, mo, pl):
         mo.md(f"✅ {len(df)} イベントを読み込みました")
     else:
         mo.md("⏳ ファイルをアップロードしてください")
-    return content, datetime, df, file_info, json, lines, records, ts
+    return (df,)
 
 
 @app.cell
@@ -136,7 +134,7 @@ def _(mo):
 
 
 @app.cell
-def _(action_filter, alt, df, mo, pl, search_text):
+def _(action_filter, df, mo, pl, search_text):
     # Apply filters
     filtered_df = df
 
@@ -164,7 +162,7 @@ def _(action_filter, alt, df, mo, pl, search_text):
     - **マッチしたイベント**: {len(filtered_df):,}
     - **アクション種類**: {len(action_summary)}
     """)
-    return action_summary, filtered_df, search_term
+    return action_summary, filtered_df
 
 
 @app.cell
@@ -182,34 +180,42 @@ def _(action_summary, alt, mo):
             )
             .properties(title="アクション分布（上位20件）", width=600, height=400)
         )
-
-        mo.ui.altair_chart(action_chart)
+        filter_result = mo.ui.altair_chart(action_chart)
     else:
-        mo.md("マッチするイベントがありません")
+        action_chart = None
+        filter_result = mo.md("マッチするイベントがありません")
+
+    filter_result
     return (action_chart,)
 
 
 @app.cell
 def _(mo):
-    mo.md("## 📝 イベント詳細")
+    mo.md("""
+    ## 📝 イベント詳細
+    """)
 
 
 @app.cell
 def _(filtered_df, mo):
     # Show filtered data table
     if len(filtered_df) > 0:
-        mo.ui.table(
+        table_result = mo.ui.table(
             filtered_df.sort("timestamp", descending=True).head(100).to_pandas(),
             pagination=True,
             page_size=20,
         )
     else:
-        mo.md("表示するデータがありません")
+        table_result = mo.md("表示するデータがありません")
+
+    table_result
 
 
 @app.cell
 def _(mo):
-    mo.md("## 📦 リポジトリ別集計")
+    mo.md("""
+    ## 📦 リポジトリ別集計
+    """)
 
 
 @app.cell
@@ -236,11 +242,11 @@ def _(alt, filtered_df, mo, pl):
                 title="リポジトリ別イベント数（上位15件）", width=600, height=300
             )
         )
-
-        mo.ui.altair_chart(repo_chart)
+        repo_result = mo.ui.altair_chart(repo_chart)
     else:
-        mo.md("リポジトリ情報がありません")
-    return repo_chart, repo_summary
+        repo_result = mo.md("リポジトリ情報がありません")
+
+    repo_result
 
 
 if __name__ == "__main__":

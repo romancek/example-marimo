@@ -18,7 +18,7 @@ Analyze temporal patterns in the audit log including:
 import marimo
 
 
-__generated_with = "0.18.0"
+__generated_with = "0.18.4"
 app = marimo.App(width="medium")
 
 
@@ -33,13 +33,11 @@ def _():
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
-        # 📈 時系列分析
+    mo.md(r"""
+    # 📈 時系列分析
 
-        このノートブックでは、Audit Logの時間的パターンを分析します。
-        """
-    )
+    このノートブックでは、Audit Logの時間的パターンを分析します。
+    """)
 
 
 @app.cell
@@ -77,7 +75,7 @@ def _(file_upload, mo, pl):
                 else:
                     ts = datetime.fromtimestamp(ts)
             else:
-                ts = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+                ts = datetime.fromisoformat(str(ts))
 
             records.append(
                 {
@@ -91,7 +89,7 @@ def _(file_upload, mo, pl):
         mo.md(f"✅ {len(df)} イベントを読み込みました")
     else:
         mo.md("⏳ ファイルをアップロードしてください")
-    return content, datetime, df, file_info, json, lines, records, ts
+    return (df,)
 
 
 @app.cell
@@ -112,7 +110,6 @@ def _(df, mo, pl):
     - **終了**: {max_ts}
     - **期間**: {(max_ts - min_ts).days} 日間
     """)
-    return max_ts, min_ts
 
 
 @app.cell
@@ -185,7 +182,7 @@ def _(alt, df, granularity, mo, pl):
     )
 
     mo.md(f"## 📊 {granularity.value}別アクティビティ")
-    return time_series, ts_chart
+    return (ts_chart,)
 
 
 @app.cell
@@ -195,7 +192,9 @@ def _(mo, ts_chart):
 
 @app.cell
 def _(mo):
-    mo.md("## ⏰ 時間帯別分布")
+    mo.md("""
+    ## ⏰ 時間帯別分布
+    """)
 
 
 @app.cell
@@ -227,12 +226,13 @@ def _(alt, df, mo, pl):
     )
 
     mo.ui.altair_chart(hourly_chart)
-    return hourly_chart, hourly_dist
 
 
 @app.cell
 def _(mo):
-    mo.md("## 📅 曜日別分布")
+    mo.md("""
+    ## 📅 曜日別分布
+    """)
 
 
 @app.cell
@@ -270,7 +270,6 @@ def _(alt, df, mo, pl):
     )
 
     mo.ui.altair_chart(weekday_chart)
-    return weekday_chart, weekday_dist, weekday_names
 
 
 @app.cell
@@ -292,7 +291,6 @@ def _(df, mo, pl):
 
     ※ 時間外 = 9:00前、18:00以降、または週末
     """)
-    return off_hours, off_hours_pct
 
 
 if __name__ == "__main__":

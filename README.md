@@ -74,12 +74,12 @@ pip install -e ".[dev,test]"
 
 ```bash
 # メインのダッシュボードを開く
-uv run marimo edit notebooks/index.py
+uv run marimo edit notebooks/index.py --no-sandbox
 
 # または特定の分析ノートブック
-uv run marimo edit notebooks/user_activity.py
-uv run marimo edit notebooks/time_analysis.py
-uv run marimo edit notebooks/anomaly_detection.py
+uv run marimo edit notebooks/user_activity.py --no-sandbox
+uv run marimo edit notebooks/time_analysis.py --no-sandbox
+uv run marimo edit notebooks/anomaly_detection.py --no-sandbox
 ```
 
 ### 4. テストの実行

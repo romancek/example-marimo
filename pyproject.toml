@@ -31,20 +31,18 @@ classifiers = [
 dependencies = [
     # ノートブック環境
     "marimo>=0.18.0",
-
     # データ処理（サーバー版）
     "polars>=1.18.0",        # 高速DataFrame（WASM非対応）
     "duckdb>=1.2.0",         # 分析用DB（WASM非対応）
-
     # データバリデーション
     "pydantic>=2.10.0",      # Pyodide対応
-
     # 可視化
     "altair>=5.5.0",         # Pyodide対応、Vega-Lite基盤
-
     # ユーティリティ
     "python-dateutil>=2.9.0",
     "orjson>=3.10.0",        # 高速JSON（大規模データ用）
+    "pyarrow>=22.0.0",
+    "pandas>=2.3.3",
 ]
 
 # ============================================================
@@ -157,6 +155,7 @@ ignore = [
     "SIM103",  # return condition directly (可読性優先)
     "TC003",   # type-checking block (シンプルさ優先)
     "B018",    # useless expression (marimoのUI要素に必要)
+    "B027",    # empty method in ABC (オプショナルオーバーライド用)
     "RUF001",  # ambiguous unicode (日本語の括弧等を許可)
     "UP038",   # isinstance with tuple (可読性優先)
     "PTH123",  # open() vs Path.open() (シンプルさ優先)

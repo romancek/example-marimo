@@ -19,7 +19,7 @@ Detect suspicious patterns in the audit log:
 import marimo
 
 
-__generated_with = "0.18.0"
+__generated_with = "0.18.4"
 app = marimo.App(width="medium")
 
 
@@ -34,13 +34,11 @@ def _():
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
-        # ⚠️ 異常検知
+    mo.md(r"""
+    # ⚠️ 異常検知
 
-        Audit Log内の疑わしいパターンを検出します。
-        """
-    )
+    Audit Log内の疑わしいパターンを検出します。
+    """)
 
 
 @app.cell
@@ -78,7 +76,7 @@ def _(file_upload, mo, pl):
                 else:
                     ts = datetime.fromtimestamp(ts)
             else:
-                ts = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+                ts = datetime.fromisoformat(str(ts))
 
             records.append(
                 {
@@ -92,10 +90,11 @@ def _(file_upload, mo, pl):
             )
 
         df = pl.DataFrame(records)
-        mo.md(f"✅ {len(df)} イベントを読み込みました")
+        file_upload_result = f"✅ {len(df)} イベントを読み込みました"
     else:
-        mo.md("⏳ ファイルをアップロードしてください")
-    return content, datetime, df, file_info, json, lines, records, ts
+        file_upload_result = "⏳ ファイルをアップロードしてください"
+    mo.md(file_upload_result)
+    return (df,)
 
 
 @app.cell
@@ -105,13 +104,11 @@ def _(df, mo):
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
-        ## 🚨 危険なアクション
+    mo.md(r"""
+    ## 🚨 危険なアクション
 
-        セキュリティ上重要なアクションを検出します。
-        """
-    )
+    セキュリティ上重要なアクションを検出します。
+    """)
 
 
 @app.cell
@@ -149,7 +146,7 @@ def _(DANGEROUS_ACTIONS, HIGH_RISK_ACTIONS, df, mo, pl):
         "timestamp", descending=True
     )
 
-    mo.md(f"""
+    dangerous_summary = mo.md(f"""
     ### 検出結果
 
     | リスクレベル | 件数 |
@@ -157,32 +154,30 @@ def _(DANGEROUS_ACTIONS, HIGH_RISK_ACTIONS, df, mo, pl):
     | 🔴 Critical (危険) | {len(dangerous_events)} |
     | 🟠 High (高リスク) | {len(high_risk_events)} |
     """)
+
+    if len(dangerous_events) > 0:
+        dangerous_title = mo.md("### 🔴 危険なアクション一覧")
+        dangerous_table = mo.ui.table(
+            dangerous_events.to_pandas(), pagination=True, page_size=10
+        )
+        dangerous_result = mo.vstack(
+            [dangerous_summary, dangerous_title, dangerous_table]
+        )
+    else:
+        dangerous_message = mo.md("✅ 危険なアクションは検出されませんでした")
+        dangerous_result = mo.vstack([dangerous_summary, dangerous_message])
+
+    dangerous_result
     return dangerous_events, high_risk_events
 
 
 @app.cell
-def _(dangerous_events, mo):
-    if len(dangerous_events) > 0:
-        mo.md("### 🔴 危険なアクション一覧")
-
-
-@app.cell
-def _(dangerous_events, mo):
-    if len(dangerous_events) > 0:
-        mo.ui.table(dangerous_events.to_pandas(), pagination=True, page_size=10)
-    else:
-        mo.md("✅ 危険なアクションは検出されませんでした")
-
-
-@app.cell
 def _(mo):
-    mo.md(
-        r"""
-        ## 🌙 時間外アクティビティ
+    mo.md(r"""
+    ## 🌙 時間外アクティビティ
 
-        営業時間外（9:00前、18:00以降、週末）のアクティビティを検出します。
-        """
-    )
+    営業時間外（9:00前、18:00以降、週末）のアクティビティを検出します。
+    """)
 
 
 @app.cell
@@ -232,22 +227,20 @@ def _(alt, mo, off_hours_by_actor):
                 height=300,
             )
         )
-
-        mo.ui.altair_chart(off_hours_chart)
+        off_hours_result = mo.ui.altair_chart(off_hours_chart)
     else:
-        mo.md("時間外アクティビティは検出されませんでした")
-    return (off_hours_chart,)
+        off_hours_result = mo.md("時間外アクティビティは検出されませんでした")
+
+    off_hours_result
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
-        ## 📊 大量操作の検出
+    mo.md(r"""
+    ## 📊 大量操作の検出
 
-        短時間での大量操作を検出します。
-        """
-    )
+    短時間での大量操作を検出します。
+    """)
 
 
 @app.cell
@@ -283,20 +276,22 @@ def _(df, mo, pl, threshold_slider):
 @app.cell
 def _(bulk_ops, mo):
     if len(bulk_ops) > 0:
-        mo.ui.table(bulk_ops.to_pandas(), pagination=True, page_size=10)
+        bulk_ops_result = mo.ui.table(
+            bulk_ops.to_pandas(), pagination=True, page_size=10
+        )
     else:
-        mo.md("✅ 大量操作は検出されませんでした")
+        bulk_ops_result = mo.md("✅ 大量操作は検出されませんでした")
+
+    bulk_ops_result
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
-        ## 🌐 IPアドレス分析
+    mo.md(r"""
+    ## 🌐 IPアドレス分析
 
-        複数のIPアドレスからアクセスしているユーザーを検出します。
-        """
-    )
+    複数のIPアドレスからアクセスしているユーザーを検出します。
+    """)
 
 
 @app.cell
@@ -315,36 +310,38 @@ def _(df, mo, pl):
         )
 
         if len(ip_analysis) > 0:
-            mo.md(f"""
+            ip_result = mo.md(f"""
             ### 複数IPからのアクセス
 
             3つ以上の異なるIPからアクセスしているユーザー: **{len(ip_analysis)}人**
             """)
         else:
-            mo.md("✅ 異常なIPパターンは検出されませんでした")
+            ip_result = mo.md("✅ 異常なIPパターンは検出されませんでした")
     else:
         ip_analysis = None
-        mo.md("⚠️ IPアドレス情報がデータに含まれていません")
+        ip_result = mo.md("⚠️ IPアドレス情報がデータに含まれていません")
+
+    ip_result
     return (ip_analysis,)
 
 
 @app.cell
 def _(ip_analysis, mo):
     if ip_analysis is not None and len(ip_analysis) > 0:
-        mo.ui.table(
+        ip_table_result = mo.ui.table(
             ip_analysis.select(["actor", "unique_ips"]).to_pandas(),
             pagination=True,
             page_size=10,
         )
+    ip_table_result
 
 
 @app.cell
 def _(
-    DANGEROUS_ACTIONS,
-    HIGH_RISK_ACTIONS,
     bulk_ops,
     dangerous_events,
     high_risk_events,
+    ip_analysis,
     mo,
     off_hours_events,
 ):
@@ -381,15 +378,8 @@ def _(
     | 高リスクアクション | {len(high_risk_events)} |
     | 大量操作 | {len(bulk_ops)} |
     | 時間外イベント | {len(off_hours_events):,} |
+    | 複数IPからのアクセス | {len(ip_analysis)} |
     """)
-    return (
-        critical_count,
-        high_count,
-        medium_count,
-        risk_color,
-        risk_level,
-        total_risk_score,
-    )
 
 
 if __name__ == "__main__":

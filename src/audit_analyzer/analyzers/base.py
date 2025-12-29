@@ -8,16 +8,14 @@ and enable polymorphic usage.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
-
-
-# Type variable for DataFrame types
-DF = TypeVar("DF")
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
 class DataFrameLike(Protocol):
     """Protocol for DataFrame-like objects supporting basic operations."""
+
+    columns: Any  # Column names (list-like or index)
 
     def __len__(self) -> int: ...
 
@@ -26,7 +24,7 @@ class DataFrameLike(Protocol):
     def group_by(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
-class BaseAnalyzer(ABC, Generic[DF]):
+class BaseAnalyzer[DF: DataFrameLike](ABC):
     """Abstract base class for all analyzers.
 
     Subclasses must implement the `analyze` method and can optionally
@@ -61,8 +59,10 @@ class BaseAnalyzer(ABC, Generic[DF]):
 
         Override in subclasses to add specific validation.
         Raises ValueError if validation fails.
+
+        Default implementation does nothing.
         """
-        pass
+        pass  # Default: no validation, subclasses should override
 
     def _get_column_names(self) -> list[str]:
         """Get column names from the DataFrame.

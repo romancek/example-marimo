@@ -43,48 +43,76 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    # Navigation cards
+    # Navigation cards with HTML links
+    def make_nav_card(title: str, icon: str, filename: str, features: list[str]):
+        feature_list = "\n".join(f"- {f}" for f in features)
+        return mo.vstack(
+            [
+                mo.md(f"### {icon} {title}"),
+                mo.Html(
+                    f'<a href="/?file=notebooks/{filename}" '
+                    f'style="display:inline-block;padding:8px 16px;background:#6366f1;'
+                    f'color:white;border-radius:6px;text-decoration:none;font-size:14px;">'
+                    f"📂 {filename} を開く</a>"
+                ),
+                mo.md(feature_list),
+            ],
+            align="start",
+        )
+
     nav_cards = mo.vstack(
         [
             mo.hstack(
                 [
-                    mo.md("""
-            ### 👥 ユーザー別アクティビティ
-            [`user_activity.py`](./user_activity.py)
-
-            - ユーザー別のアクション数
-            - 最もアクティブなユーザー
-            - ユーザーごとのアクション種別分布
-            """),
-                    mo.md("""
-            ### 📈 時系列分析
-            [`time_analysis.py`](./time_analysis.py)
-
-            - 時間帯別アクティビティ
-            - 日次/週次/月次トレンド
-            - ピーク時間帯の特定
-            """),
-                ]
+                    make_nav_card(
+                        "ユーザー別アクティビティ",
+                        "👥",
+                        "user_activity.py",
+                        [
+                            "ユーザー別のアクション数",
+                            "最もアクティブなユーザー",
+                            "ユーザーごとのアクション種別分布",
+                        ],
+                    ),
+                    make_nav_card(
+                        "時系列分析",
+                        "📈",
+                        "time_analysis.py",
+                        [
+                            "時間帯別アクティビティ",
+                            "日次/週次/月次トレンド",
+                            "ピーク時間帯の特定",
+                        ],
+                    ),
+                ],
+                justify="start",
+                gap=2,
             ),
             mo.hstack(
                 [
-                    mo.md("""
-            ### 🔎 アクション追跡
-            [`action_tracker.py`](./action_tracker.py)
-
-            - アクション種別でフィルタリング
-            - 特定イベントの詳細検索
-            - リポジトリ/チーム別集計
-            """),
-                    mo.md("""
-            ### ⚠️ 異常検知
-            [`anomaly_detection.py`](./anomaly_detection.py)
-
-            - 時間外アクティビティ
-            - 大量操作の検出
-            - 危険なアクションの警告
-            """),
-                ]
+                    make_nav_card(
+                        "アクション追跡",
+                        "🔎",
+                        "action_tracker.py",
+                        [
+                            "アクション種別でフィルタリング",
+                            "特定イベントの詳細検索",
+                            "リポジトリ/チーム別集計",
+                        ],
+                    ),
+                    make_nav_card(
+                        "異常検知",
+                        "⚠️",
+                        "anomaly_detection.py",
+                        [
+                            "時間外アクティビティ",
+                            "大量操作の検出",
+                            "危険なアクションの警告",
+                        ],
+                    ),
+                ],
+                justify="start",
+                gap=2,
             ),
         ]
     )
@@ -95,7 +123,7 @@ def _(mo):
 def _(mo):
     mo.md(r"""
     ---
-
+    # 📝サマリ表示
     ## 📁 データの読み込み
 
     分析を始めるには、まずAudit LogのJSONファイルをアップロードしてください。
@@ -115,17 +143,68 @@ def _(mo):
 
 @app.cell
 def _(file_upload, mo):
-    # Show upload status
+    import json
+    from datetime import datetime
+
+    import polars as pl
+
+    # Load data when file is uploaded
+    df = None
     if file_upload.value:
         file_info = file_upload.value[0]
-        mo.md(f"""
-        ✅ **ファイルがアップロードされました**
+        content = file_info.contents.decode("utf-8")
+
+        if file_info.name.endswith(".ndjson"):
+            # NDJSON format
+            lines = [json.loads(line) for line in content.strip().split("\n") if line]
+        else:
+            # JSON array format
+            lines = json.loads(content)
+
+        # Convert to DataFrame
+        records = []
+        for entry in lines:
+            ts = entry.get("@timestamp", entry.get("timestamp"))
+            if isinstance(ts, (int, float)):
+                if ts > 1e12:
+                    ts = datetime.fromtimestamp(ts / 1000)
+                else:
+                    ts = datetime.fromtimestamp(ts)
+            else:
+                ts = datetime.fromisoformat(str(ts))
+
+            records.append(
+                {
+                    "timestamp": ts,
+                    "action": entry.get("action", "unknown"),
+                    "actor": entry.get("actor", "unknown"),
+                    "org": entry.get("org", "unknown"),
+                    "repo": entry.get("repo"),
+                }
+            )
+
+        df = pl.DataFrame(records)
+        status = mo.md(f"""
+        ✅ **{len(df):,} イベントを読み込みました**
 
         - ファイル名: `{file_info.name}`
         - サイズ: {len(file_info.contents) / 1024:.1f} KB
+        - 期間: {df["timestamp"].min()} 〜 {df["timestamp"].max()}
+        - ユニークユーザー: {df["actor"].n_unique()} 人
+        - ユニークアクション: {df["action"].n_unique()} 種類
         """)
     else:
-        mo.md("⏳ ファイルを選択してください...")
+        df = None
+        status = mo.md("⏳ ファイルを選択してください...")
+    status
+
+
+@app.cell
+def _(mo) -> None:
+    mo.md(r"""
+    # 📊カスタム分析🧐
+    以降ではDataFrame型のdf変数を使って自由に分析してください！
+    """)
 
 
 @app.cell

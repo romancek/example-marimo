@@ -5,6 +5,7 @@
 #     "polars",
 #     "altair",
 #     "pydantic",
+#     "pyarrow==22.0.0",
 # ]
 # ///
 """
@@ -19,7 +20,7 @@ Analyze per-user patterns in the audit log including:
 import marimo
 
 
-__generated_with = "0.18.0"
+__generated_with = "0.18.4"
 app = marimo.App(width="medium")
 
 
@@ -34,13 +35,11 @@ def _():
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
-        # 👥 ユーザー別アクティビティ分析
+    mo.md(r"""
+    # 👥 ユーザー別アクティビティ分析
 
-        このノートブックでは、Audit Logをユーザー別に分析します。
-        """
-    )
+    このノートブックでは、Audit Logをユーザー別に分析します。
+    """)
 
 
 @app.cell
@@ -83,7 +82,7 @@ def _(file_upload, mo, pl):
                 else:
                     ts = datetime.fromtimestamp(ts)
             else:
-                ts = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+                ts = datetime.fromisoformat(str(ts))
 
             records.append(
                 {
@@ -99,7 +98,7 @@ def _(file_upload, mo, pl):
         mo.md(f"✅ {len(df)} イベントを読み込みました")
     else:
         mo.md("⏳ ファイルをアップロードしてください")
-    return content, datetime, df, file_info, json, lines, records, ts
+    return (df,)
 
 
 @app.cell
@@ -123,7 +122,6 @@ def _(df, mo, pl):
     - **総イベント数**: {df.height}
     - **平均イベント/ユーザー**: {df.height / user_counts.height:.1f}
     """)
-    return (user_counts,)
 
 
 @app.cell
@@ -201,6 +199,7 @@ def _(mo, top_users):
 
 @app.cell
 def _(action_breakdown, alt, mo, pl, user_selector):
+    print(user_selector.value)
     if user_selector.value:
         user_actions = action_breakdown.filter(pl.col("actor") == user_selector.value)
 
@@ -221,7 +220,12 @@ def _(action_breakdown, alt, mo, pl, user_selector):
         mo.ui.altair_chart(action_chart)
     else:
         mo.md("ユーザーを選択してください")
-    return action_chart, user_actions
+    return (action_chart,)
+
+
+@app.cell
+def _(action_chart, mo):
+    mo.ui.altair_chart(action_chart)
 
 
 if __name__ == "__main__":
