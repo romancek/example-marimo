@@ -1,10 +1,7 @@
+#!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.12"
-# dependencies = [
-#     "jinja2>=3.1.0",
-#     "fire>=0.7.0",
-#     "loguru>=0.7.0",
-# ]
+# dependencies = []
 # ///
 """
 Build script for marimo notebooks.
@@ -17,12 +14,27 @@ Usage:
     uv run .github/scripts/build.py --output-dir _site
 """
 
+from __future__ import annotations
+
+import argparse
 import subprocess
+import sys
 from pathlib import Path
 
-import fire
-import jinja2
-from loguru import logger
+
+def log_info(message: str) -> None:
+    """Print info message."""
+    print(f"[INFO] {message}")
+
+
+def log_error(message: str) -> None:
+    """Print error message."""
+    print(f"[ERROR] {message}", file=sys.stderr)
+
+
+def log_warning(message: str) -> None:
+    """Print warning message."""
+    print(f"[WARN] {message}", file=sys.stderr)
 
 
 def _export_html_wasm(
@@ -45,33 +57,33 @@ def _export_html_wasm(
 
     # Configure export mode
     if as_app:
-        logger.info(f"Exporting {notebook_path} as app (run mode)")
+        log_info(f"Exporting {notebook_path} as app (run mode)")
         cmd.extend(["--mode", "run", "--no-show-code"])
     else:
-        logger.info(f"Exporting {notebook_path} as notebook (edit mode)")
+        log_info(f"Exporting {notebook_path} as notebook (edit mode)")
         cmd.extend(["--mode", "edit"])
 
     try:
         # Create full output path and ensure directory exists
-        output_file: Path = output_dir / notebook_path.with_suffix(".html")
+        output_file: Path = output_dir / notebook_path.with_suffix(".html").name
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
         # Add notebook path and output file to command
         cmd.extend([str(notebook_path), "-o", str(output_file)])
 
         # Run marimo export command
-        logger.debug(f"Running command: {' '.join(cmd)}")
+        log_info(f"Running: {' '.join(cmd)}")
         subprocess.run(cmd, capture_output=True, text=True, check=True)
-        logger.info(f"Successfully exported {notebook_path}")
+        log_info(f"Successfully exported {notebook_path}")
         return True
 
     except subprocess.CalledProcessError as e:
-        logger.error(f"Error exporting {notebook_path}:")
-        logger.error(f"stdout: {e.stdout}")
-        logger.error(f"stderr: {e.stderr}")
+        log_error(f"Error exporting {notebook_path}:")
+        log_error(f"stdout: {e.stdout}")
+        log_error(f"stderr: {e.stderr}")
         return False
     except Exception as e:
-        logger.error(f"Unexpected error exporting {notebook_path}: {e}")
+        log_error(f"Unexpected error exporting {notebook_path}: {e}")
         return False
 
 
@@ -87,13 +99,71 @@ def _generate_index(
         notebooks_data: List of dictionaries with data for notebooks
         apps_data: List of dictionaries with data for apps
     """
-    logger.info("Generating index.html")
+    log_info("Generating index.html")
 
     index_path: Path = output_dir / "index.html"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Simple HTML template (inline to avoid external dependency)
-    html_template = """<!DOCTYPE html>
+    notebooks = notebooks_data or []
+    apps = apps_data or []
+
+    # Generate notebook cards HTML
+    notebook_cards = ""
+    for nb in notebooks:
+        notebook_cards += f"""
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+            <div class="bg-gray-100 px-4 py-3 border-b border-gray-200">
+              <h3 class="font-semibold text-gray-800">{nb['display_name']}</h3>
+            </div>
+            <div class="p-4">
+              <a href="{nb['html_path']}"
+                 class="inline-block bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded transition-colors">
+                Open Notebook
+              </a>
+            </div>
+          </div>"""
+
+    # Generate app cards HTML
+    app_cards = ""
+    for app in apps:
+        app_cards += f"""
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+            <div class="bg-amber-100 px-4 py-3 border-b border-amber-200">
+              <h3 class="font-semibold text-gray-800">{app['display_name']}</h3>
+            </div>
+            <div class="p-4">
+              <a href="{app['html_path']}"
+                 class="inline-block bg-amber-500 hover:bg-amber-600 text-white py-2 px-4 rounded transition-colors">
+                Open App
+              </a>
+            </div>
+          </div>"""
+
+    # Build sections
+    notebooks_section = ""
+    if notebooks:
+        notebooks_section = f"""
+      <section class="mb-8">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">📓 Notebooks</h2>
+        <p class="text-gray-600 mb-4">Interactive notebooks - you can modify and experiment with the code</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {notebook_cards}
+        </div>
+      </section>"""
+
+    apps_section = ""
+    if apps:
+        apps_section = f"""
+      <section class="mb-8">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">🚀 Apps</h2>
+        <p class="text-gray-600 mb-4">Interactive applications - code is hidden for a clean interface</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {app_cards}
+        </div>
+      </section>"""
+
+    # Full HTML template
+    html_content = f"""<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
@@ -110,49 +180,8 @@ def _generate_index(
     </header>
 
     <main>
-      {% if notebooks %}
-      <section class="mb-8">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">📓 Notebooks</h2>
-        <p class="text-gray-600 mb-4">Interactive notebooks - you can modify and experiment with the code</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {% for notebook in notebooks %}
-          <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-            <div class="bg-gray-100 px-4 py-3 border-b border-gray-200">
-              <h3 class="font-semibold text-gray-800">{{ notebook.display_name }}</h3>
-            </div>
-            <div class="p-4">
-              <a href="{{ notebook.html_path }}"
-                 class="inline-block bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded transition-colors">
-                Open Notebook
-              </a>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </section>
-      {% endif %}
-
-      {% if apps %}
-      <section class="mb-8">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">🚀 Apps</h2>
-        <p class="text-gray-600 mb-4">Interactive applications - code is hidden for a clean interface</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {% for app in apps %}
-          <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-            <div class="bg-amber-100 px-4 py-3 border-b border-amber-200">
-              <h3 class="font-semibold text-gray-800">{{ app.display_name }}</h3>
-            </div>
-            <div class="p-4">
-              <a href="{{ app.html_path }}"
-                 class="inline-block bg-amber-500 hover:bg-amber-600 text-white py-2 px-4 rounded transition-colors">
-                Open App
-              </a>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </section>
-      {% endif %}
+      {notebooks_section}
+      {apps_section}
     </main>
 
     <footer class="mt-12 pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
@@ -164,23 +193,17 @@ def _generate_index(
 </html>"""
 
     try:
-        template = jinja2.Template(html_template)
-        rendered_html = template.render(
-            notebooks=notebooks_data or [],
-            apps=apps_data or [],
-        )
-
         with open(index_path, "w", encoding="utf-8") as f:
-            f.write(rendered_html)
+            f.write(html_content)
 
         # Create .nojekyll file to prevent GitHub Pages from processing with Jekyll
         nojekyll_path = output_dir / ".nojekyll"
         nojekyll_path.touch()
 
-        logger.info(f"Successfully generated index.html at {index_path}")
+        log_info(f"Successfully generated index.html at {index_path}")
 
     except Exception as e:
-        logger.error(f"Error generating index.html: {e}")
+        log_error(f"Error generating index.html: {e}")
         raise
 
 
@@ -200,15 +223,15 @@ def _export_folder(
         List of dictionaries with "display_name" and "html_path" for each notebook
     """
     if not folder.exists():
-        logger.warning(f"Directory not found: {folder}")
+        log_warning(f"Directory not found: {folder}")
         return []
 
     # Find all Python files in the folder (non-recursive to avoid __pycache__)
     notebooks = list(folder.glob("*.py"))
-    logger.info(f"Found {len(notebooks)} Python files in {folder}")
+    log_info(f"Found {len(notebooks)} Python files in {folder}")
 
     if not notebooks:
-        logger.warning(f"No notebooks found in {folder}!")
+        log_warning(f"No notebooks found in {folder}!")
         return []
 
     # Export each notebook and collect metadata
@@ -218,28 +241,26 @@ def _export_folder(
             notebook_data.append(
                 {
                     "display_name": nb.stem.replace("_", " ").title(),
-                    "html_path": str(nb.with_suffix(".html")),
+                    "html_path": nb.with_suffix(".html").name,
                 }
             )
 
-    logger.info(
+    log_info(
         f"Successfully exported {len(notebook_data)} out of {len(notebooks)} files from {folder}"
     )
     return notebook_data
 
 
-def main(
-    output_dir: str | Path = "_site",
-) -> None:
+def main(output_dir: str = "_site") -> None:
     """Main function to export marimo notebooks.
 
     Args:
         output_dir: Directory where the exported files will be saved (default: _site)
     """
-    logger.info("Starting marimo build process")
+    log_info("Starting marimo build process")
 
     output_dir_path: Path = Path(output_dir)
-    logger.info(f"Output directory: {output_dir_path}")
+    log_info(f"Output directory: {output_dir_path}")
 
     output_dir_path.mkdir(parents=True, exist_ok=True)
 
@@ -250,7 +271,7 @@ def main(
     apps_data = _export_folder(Path("apps"), output_dir_path, as_app=True)
 
     if not notebooks_data and not apps_data:
-        logger.warning("No notebooks or apps found!")
+        log_warning("No notebooks or apps found!")
         return
 
     # Generate the index.html file
@@ -260,8 +281,18 @@ def main(
         apps_data=apps_data,
     )
 
-    logger.info(f"Build completed successfully. Output directory: {output_dir_path}")
+    log_info(f"Build completed successfully. Output directory: {output_dir_path}")
 
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    parser = argparse.ArgumentParser(
+        description="Export marimo notebooks to HTML/WebAssembly format"
+    )
+    parser.add_argument(
+        "--output-dir",
+        default="_site",
+        help="Directory where the exported files will be saved (default: _site)",
+    )
+    args = parser.parse_args()
+
+    main(output_dir=args.output_dir)
