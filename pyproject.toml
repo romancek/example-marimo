@@ -2,7 +2,7 @@
 # Python 3.12 / marimo / uv
 
 [project]
-name = "audit-analyzer"
+name = "example-marimo"
 version = "0.1.0"
 description = "GitHub Organization Audit Log analyzer using marimo notebooks"
 readme = "README.md"
@@ -81,7 +81,7 @@ wasm = [
 
 # 全部入り（CI用）
 all = [
-    "audit-analyzer[dev,test,docs]",
+    "example-marimo[dev,test,docs]",
 ]
 
 # ============================================================

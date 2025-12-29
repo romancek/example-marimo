@@ -185,14 +185,16 @@ example-marimo/
 
 ### 0.5 pyproject.toml の設定状況
 
+> **注記**: 以下は調査時点の状態。リファクタリング後は `example-marimo` に名称変更済み。
+
 | 項目 | 状態 |
 |------|------|
-| パッケージ名 | `audit-analyzer` |
-| ビルドバックエンド | `hatchling` |
-| ビルド対象 | `src/audit_analyzer` ✅ |
-| CLIエントリポイント | `audit-analyzer = "audit_analyzer.cli:main"` ⚠️ **cli.py未実装** |
-| 型付き | `py.typed` ✅ |
-| テスト設定 | pytest + coverage (80%目標) ✅ |
+| パッケージ名 | `example-marimo` (旧: `audit-analyzer`) |
+| ビルドバックエンド | `hatchling` → 削除済み |
+| ビルド対象 | `src/audit_analyzer` → 削除済み |
+| CLIエントリポイント | 削除済み |
+| 型付き | `py.typed` → 削除済み |
+| テスト設定 | pytest + coverage → 将来対応予定 |
 | リンター | Ruff (厳格設定) ✅ |
 
 ---

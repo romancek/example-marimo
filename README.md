@@ -50,8 +50,8 @@ GitHub OrganizationのAudit Log（JSON形式）を分析するためのインタ
 ### 1. リポジトリのクローン
 
 ```bash
-git clone https://github.com/your-org/audit-analyzer.git
-cd audit-analyzer
+git clone https://github.com/your-org/example-marimo.git
+cd example-marimo
 ```
 
 ### 2. 依存関係のインストール
@@ -125,7 +125,7 @@ uv run ruff check . --fix
 ## 📁 ディレクトリ構造
 
 ```
-audit-analyzer/
+example-marimo/
 ├── notebooks/                  # marimo ノートブック
 │   ├── index.py               # ダッシュボード（メインページ）
 │   ├── user_activity.py       # ユーザー別アクティビティ分析

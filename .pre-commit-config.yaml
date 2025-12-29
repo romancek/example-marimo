@@ -1,5 +1,5 @@
 # .pre-commit-config.yaml
-# Pre-commit hooks for audit-analyzer
+# Pre-commit hooks for example-marimo
 #
 # インストール:
 #   uv run pre-commit install
