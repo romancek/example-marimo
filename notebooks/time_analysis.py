@@ -4,6 +4,8 @@
 #     "marimo",
 #     "polars",
 #     "altair",
+#     "pandas",
+#     "pyarrow",
 # ]
 # ///
 """

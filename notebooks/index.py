@@ -5,6 +5,8 @@
 #     "polars",
 #     "altair",
 #     "pydantic",
+#     "pandas",
+#     "pyarrow",
 # ]
 # ///
 """

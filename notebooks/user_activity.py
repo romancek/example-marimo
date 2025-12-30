@@ -5,7 +5,8 @@
 #     "polars",
 #     "altair",
 #     "pydantic",
-#     "pyarrow==22.0.0",
+#     "pandas",
+#     "pyarrow",
 # ]
 # ///
 """
