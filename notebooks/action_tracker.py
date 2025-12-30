@@ -5,7 +5,6 @@
 #     "polars",
 #     "altair",
 #     "pandas",
-#     "pyarrow",
 # ]
 # ///
 """
@@ -190,9 +189,7 @@ def _(action_summary, alt, mo):
     # Action distribution chart
     if len(action_summary) > 0:
         action_chart = (
-            alt.Chart(
-                action_summary.head(20).to_pandas(use_pyarrow_extension_array=False)
-            )
+            alt.Chart(action_summary.head(20).to_dicts())
             .mark_bar()
             .encode(
                 x=alt.X("count:Q", title="件数"),
@@ -253,7 +250,7 @@ def _(alt, filtered_df, mo, pl):
 
     if len(repo_summary) > 0:
         repo_chart = (
-            alt.Chart(repo_summary.to_pandas(use_pyarrow_extension_array=False))
+            alt.Chart(repo_summary.to_dicts())
             .mark_bar()
             .encode(
                 x=alt.X("count:Q", title="イベント数"),
