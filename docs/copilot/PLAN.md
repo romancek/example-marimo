@@ -38,6 +38,26 @@ ______________________________________________________________________
 1. ✅ `.github/workflows/deploy.yml` のpathsトリガーを更新
 1. ✅ `.github/prompts/` ディレクトリを削除
 
+### 2025-12-30 品質改善・Lint/Notebook更新
+
+**決定事項**:
+
+- MarkdownのLintを`markdownlint-cli`に統一し、設定を`.markdownlint.yaml`へ移行（各MDルールの意味をコメントで明記）
+- marimoノートブックの依存関係（PEP 723）に`pandas`/`pyarrow`を追加
+- 全ノートブックで「複数JSON/NDJSONファイルの一括読み込み」を実装（`_source_file`列で発生元を追跡）
+
+**環境対応**:
+
+1. ✅ `nvm`で Node.js LTS を導入
+1. ✅ `markdownlint-cli`実行時の`libatomic.so.1`不足に対応（`libatomic1`をインストール）
+1. ✅ pre-commit 全フックがパス
+
+**影響範囲**:
+
+- `README.md`: 複数ファイル対応とmarkdownlintの記載を追加
+- `docs/DESIGN.md`: 入力UI/読み込みパターンを複数ファイル対応に更新
+- `docs/ROADMAP.md`: 実装済み項目と更新履歴を反映
+
 ______________________________________________________________________
 
 ## 0. コードベース調査結果（参考）

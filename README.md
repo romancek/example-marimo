@@ -34,7 +34,7 @@ GitHub OrganizationのAudit Log（JSON形式）を分析するためのインタ
 
 | 機能               | 説明                                 | ノートブック           |
 | ------------------ | ------------------------------------ | ---------------------- |
-| **ダッシュボード** | ナビゲーション、ファイルアップロード | `index.py`             |
+| **ダッシュボード** | ナビゲーション、複数ファイルアップロード | `index.py`             |
 | **ユーザー別分析** | ユーザーごとのアクション数・分布     | `user_activity.py`     |
 | **時系列分析**     | 時間帯別/日別/週別トレンド           | `time_analysis.py`     |
 | **アクション追跡** | アクション種別フィルタ、検索         | `action_tracker.py`    |
@@ -71,6 +71,8 @@ uv run marimo edit notebooks/user_activity.py
 uv run marimo edit notebooks/time_analysis.py
 uv run marimo edit notebooks/anomaly_detection.py
 uv run marimo edit notebooks/action_tracker.py
+
+"複数の監査ログファイル"をまとめてアップロード可能です（すべてのノートブックで対応）。
 ```
 
 ## 🌐 GitHub Pagesでの公開
@@ -110,6 +112,19 @@ uv run pre-commit install
 
 # 4. コード品質チェック
 uv run pre-commit run --all-files
+
+### MarkdownのLint（markdownlint-cli）
+
+pre-commitでMarkdownのLint（markdownlint-cli）を実行します。設定は `.markdownlint.yaml` にあり、各ルールの意味を日本語コメントで記載しています。
+
+```bash
+# フックのインストール（未設定の場合）
+uv run pre-commit install
+
+# すべてのファイルでLintを実行
+uv run pre-commit run markdownlint --all-files
+```
+
 ```
 
 ### コード品質チェック
@@ -146,6 +161,7 @@ example-marimo/
 │
 ├── pyproject.toml             # 依存関係定義
 ├── .pre-commit-config.yaml    # pre-commitフック設定
+├── .markdownlint.yaml         # Markdown Lint設定（コメント付き）
 └── .gitignore
 ```
 

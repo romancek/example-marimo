@@ -56,7 +56,7 @@ ______________________________________________________________________
 ### 2.2 設計原則
 
 1. **スタンドアロン**: 各ノートブックは独立して動作
-1. **PEP 723準拠**: インライン依存関係でサンドボックス環境を構築
+1. **PEP 723準拠**: インライン依存関係でサンドボックス環境を構築（`marimo`/`polars`/`altair`に加え、`pandas`/`pyarrow`も定義）
 1. **シンプル**: 外部パッケージへの依存なし（notebooks/のみ）
 
 ______________________________________________________________________
@@ -98,8 +98,9 @@ def _():
 def _(mo):
     # ファイルアップロード
     file_input = mo.ui.file(
-        filetypes=[".json", ".ndjson"],
-        label="監査ログファイルを選択",
+      filetypes=[".json", ".ndjson"],
+      label="監査ログファイルを選択（複数可）",
+      multiple=True,
     )
     file_input
     return (file_input,)
@@ -107,13 +108,21 @@ def _(mo):
 
 @app.cell
 def _(file_input, pl, json):
-    # データ読み込み
+    # データ読み込み（複数ファイル対応）
     mo.stop(not file_input.value, mo.md("ファイルを選択してください"))
 
-    content = file_input.value[0].contents.decode("utf-8")
-    # JSON / NDJSON の判定と読み込み
-    ...
-    return (df,)
+    frames = []
+    for f in file_input.value:
+      content = f.contents.decode("utf-8").strip()
+      if content.startswith("["):
+        data = json.loads(content)
+      else:
+        data = [json.loads(line) for line in content.split("\n") if line.strip()]
+      df = pl.DataFrame(data).with_columns(pl.lit(f.name).alias("_source_file"))
+      frames.append(df)
+
+    df_all = pl.concat(frames, how="vertical")
+    return (df_all,)
 ```
 
 ### 3.2 各ノートブックの役割
@@ -285,3 +294,4 @@ ______________________________________________________________________
 | 日付       | 変更内容                             |
 | ---------- | ------------------------------------ |
 | 2025-12-29 | notebooks/中心のシンプルな構成に変更 |
+| 2025-12-30 | 全ノートブックで複数ファイル読み込み対応／PEP 723に`pandas`/`pyarrow`を追加／Markdown Lintを`markdownlint-cli`に統一（`.markdownlint.yaml`でコメント化） |
