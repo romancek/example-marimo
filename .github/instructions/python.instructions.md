@@ -1,5 +1,5 @@
 ---
-description: 'Python coding conventions and guidelines'
+description: Python coding conventions and guidelines
 applyTo: '**/*.py'
 ---
 

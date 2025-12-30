@@ -101,14 +101,16 @@ repos:
         args: [-d, "{extends: relaxed, rules: {line-length: {max: 120}}}"]
 
   # ============================================================
-  # Markdown lint - Markdownファイルのチェック
-  # 注意: Node.js環境が必要。環境が整っていない場合はコメントアウト
+  # Markdown format/lint - Markdownファイルのフォーマット
   # ============================================================
-  # - repo: https://github.com/igorshubovych/markdownlint-cli
-  #   rev: v0.43.0
-  #   hooks:
-  #     - id: markdownlint
-  #       args: [--fix, --disable, MD013, MD033, MD041, --]
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.21
+    hooks:
+      - id: mdformat
+        additional_dependencies:
+          - mdformat-gfm          # GitHub Flavored Markdown
+          - mdformat-frontmatter  # YAML frontmatter対応
+          - mdformat-tables       # テーブル整形
 
 # ============================================================
 # pre-commit.ci 設定
