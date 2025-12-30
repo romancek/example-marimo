@@ -1,0 +1,42 @@
+# markdownlint-cli 設定ファイル
+# ルール一覧: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+default: true
+
+# MD013: Line length
+# 行の最大長を制限しない（日本語文章では改行位置が難しいため）
+MD013: false
+
+# MD024: Multiple headings with the same content
+# 同じレベルの兄弟要素間でのみ重複ヘッダーをチェック
+MD024:
+  siblings_only: true
+
+# MD033: Inline HTML
+# 特定のHTML要素を許可（GitHub Markdown互換）
+MD033:
+  allowed_elements:
+    - a
+    - br
+    - img
+    - details
+    - summary
+    - kbd
+    - sub
+    - sup
+
+# MD036: Emphasis used instead of a heading
+# 強調をヘッダー代わりに使用することを許可（ドキュメントスタイル）
+MD036: false
+
+# MD040: Fenced code blocks should have a language specified
+# コードブロックの言語指定を任意に（ディレクトリツリー表記など）
+MD040: false
+
+# MD041: First line in a file should be a top-level heading
+# 最初の行がH1でなくてもOK（フロントマターやメタデータ用）
+MD041: false
+
+# MD051: Link fragments should be valid
+# 日本語のアンカーリンク（URLエンコード）を許可
+MD051: false
