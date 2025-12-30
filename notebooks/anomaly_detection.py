@@ -177,9 +177,7 @@ def _(DANGEROUS_ACTIONS, HIGH_RISK_ACTIONS, df, mo, pl):
 
     if len(dangerous_events) > 0:
         dangerous_title = mo.md("### 🔴 危険なアクション一覧")
-        dangerous_table = mo.ui.table(
-            dangerous_events.to_pandas(), pagination=True, page_size=10
-        )
+        dangerous_table = mo.ui.table(dangerous_events, pagination=True, page_size=10)
         dangerous_result = mo.vstack(
             [dangerous_summary, dangerous_title, dangerous_table]
         )
@@ -233,7 +231,7 @@ def _(df, mo, pl):
 def _(alt, mo, off_hours_by_actor):
     if len(off_hours_by_actor) > 0:
         off_hours_chart = (
-            alt.Chart(off_hours_by_actor.to_pandas())
+            alt.Chart(off_hours_by_actor.to_pandas(use_pyarrow_extension_array=False))
             .mark_bar()
             .encode(
                 x=alt.X("off_hours_count:Q", title="時間外イベント数"),
@@ -296,9 +294,7 @@ def _(df, mo, pl, threshold_slider):
 @app.cell
 def _(bulk_ops, mo):
     if len(bulk_ops) > 0:
-        bulk_ops_result = mo.ui.table(
-            bulk_ops.to_pandas(), pagination=True, page_size=10
-        )
+        bulk_ops_result = mo.ui.table(bulk_ops, pagination=True, page_size=10)
     else:
         bulk_ops_result = mo.md("✅ 大量操作は検出されませんでした")
 
@@ -349,7 +345,7 @@ def _(df, mo, pl):
 def _(ip_analysis, mo):
     if ip_analysis is not None and len(ip_analysis) > 0:
         ip_table_result = mo.ui.table(
-            ip_analysis.select(["actor", "unique_ips"]).to_pandas(),
+            ip_analysis.select(["actor", "unique_ips"]),
             pagination=True,
             page_size=10,
         )

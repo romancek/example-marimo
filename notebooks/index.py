@@ -45,17 +45,29 @@ def _(mo):
 
 @app.cell
 def _(mo):
+    import sys
+
+    # WASM環境(GitHub Pages)かローカル環境かを判定
+    is_wasm = sys.platform == "emscripten"
+
     # Navigation cards with HTML links
     def make_nav_card(title: str, icon: str, filename: str, features: list[str]):
         feature_list = "\n".join(f"- {f}" for f in features)
+        # 環境に応じてリンク形式を切り替え
+        if is_wasm:
+            # GitHub Pages - static HTML file link
+            link_url = filename.replace(".py", ".html")
+        else:
+            # Local environment - marimo file parameter
+            link_url = f"/?file=notebooks/{filename}"
         return mo.vstack(
             [
                 mo.md(f"### {icon} {title}"),
                 mo.Html(
-                    f'<a href="/?file=notebooks/{filename}" '
+                    f'<a href="{link_url}" '
                     f'style="display:inline-block;padding:8px 16px;background:#6366f1;'
                     f'color:white;border-radius:6px;text-decoration:none;font-size:14px;">'
-                    f"📂 {filename} を開く</a>"
+                    f"📂 {title} を開く</a>"
                 ),
                 mo.md(feature_list),
             ],
