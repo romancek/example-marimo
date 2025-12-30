@@ -128,7 +128,8 @@ def _(mo):
     # 📝サマリ表示
     ## 📁 データの読み込み
 
-    分析を始めるには、まずAudit LogのJSONファイルをアップロードしてください。
+    分析を始めるには、Audit LogのJSONファイルをアップロードしてください。
+    **複数ファイルを選択して一括読み込みも可能です。**
     """)
 
 
@@ -136,8 +137,8 @@ def _(mo):
 def _(mo):
     file_upload = mo.ui.file(
         filetypes=[".json", ".ndjson"],
-        multiple=False,
-        label="Audit Logファイルをアップロード",
+        multiple=True,  # 複数ファイル選択を有効化
+        label="Audit Logファイルをアップロード（複数選択可）",
     )
     file_upload
     return (file_upload,)
@@ -150,20 +151,16 @@ def _(file_upload, mo):
 
     import polars as pl
 
-    # Load data when file is uploaded
-    df = None
-    if file_upload.value:
-        file_info = file_upload.value[0]
-        content = file_info.contents.decode("utf-8")
+    def parse_audit_log_file(file_info) -> list[dict]:
+        """単一ファイルをパースしてレコードリストを返す"""
+        content = file_info.contents.decode("utf-8").strip()
 
-        if file_info.name.endswith(".ndjson"):
-            # NDJSON format
-            lines = [json.loads(line) for line in content.strip().split("\n") if line]
+        # NDJSON形式 または JSON配列形式を判定
+        if file_info.name.endswith(".ndjson") or not content.startswith("["):
+            lines = [json.loads(line) for line in content.split("\n") if line.strip()]
         else:
-            # JSON array format
             lines = json.loads(content)
 
-        # Convert to DataFrame
         records = []
         for entry in lines:
             ts = entry.get("@timestamp", entry.get("timestamp"))
@@ -182,15 +179,38 @@ def _(file_upload, mo):
                     "actor": entry.get("actor", "unknown"),
                     "org": entry.get("org", "unknown"),
                     "repo": entry.get("repo"),
+                    "_source_file": file_info.name,  # ソースファイル追跡用
                 }
             )
+        return records
 
-        df = pl.DataFrame(records)
+    # 複数ファイルの読み込み
+    df = None
+    if file_upload.value:
+        all_records = []
+        file_summaries = []
+        total_size = 0
+
+        for file_info in file_upload.value:
+            records = parse_audit_log_file(file_info)
+            all_records.extend(records)
+            file_summaries.append(f"- `{file_info.name}`: {len(records):,} イベント")
+            total_size += len(file_info.contents)
+
+        df = pl.DataFrame(all_records)
+
+        # ファイル数に応じたメッセージ
+        file_count = len(file_upload.value)
+        files_info = "\n".join(file_summaries)
+
         status = mo.md(f"""
-        ✅ **{len(df):,} イベントを読み込みました**
+        ✅ **{len(df):,} イベントを読み込みました** ({file_count} ファイル)
 
-        - ファイル名: `{file_info.name}`
-        - サイズ: {len(file_info.contents) / 1024:.1f} KB
+        **読み込んだファイル:**
+        {files_info}
+
+        **サマリ:**
+        - 合計サイズ: {total_size / 1024:.1f} KB
         - 期間: {df["timestamp"].min()} 〜 {df["timestamp"].max()}
         - ユニークユーザー: {df["actor"].n_unique()} 人
         - ユニークアクション: {df["action"].n_unique()} 種類

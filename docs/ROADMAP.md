@@ -4,45 +4,26 @@
 
 ---
 
-## 🎯 優先度: 高
+## ✅ 実装済み
 
 ### 複数JSONファイルのロード対応
 
-**概要**: 複数の監査ログファイルを選択して一括でロードできるようにする
+**概要**: 複数の監査ログファイルを選択して一括でロードできる
 
-**現状**:
-- 現在は1ファイルのみ選択可能（`mo.ui.file()`）
+**実装内容**:
+- `mo.ui.file(multiple=True)` で複数ファイル選択を有効化
+- 各ファイルのイベント数を個別表示
+- ソースファイル追跡用の `_source_file` カラムを追加
+- JSON形式（配列）とNDJSON形式の両方に対応
 
-**実装案**:
-```python
-# 複数ファイル選択を有効化
-file_input = mo.ui.file(
-    filetypes=[".json", ".ndjson"],
-    multiple=True,  # 複数選択を有効化
-    label="監査ログファイルを選択（複数可）",
-)
-
-# 複数ファイルの結合
-if file_input.value:
-    all_data = []
-    for file in file_input.value:
-        content = file.contents.decode("utf-8").strip()
-        if content.startswith("["):
-            all_data.extend(json.loads(content))
-        else:
-            all_data.extend([
-                json.loads(line)
-                for line in content.split("\n")
-                if line.strip()
-            ])
-    df = pl.DataFrame(all_data)
-```
-
-**対象ノートブック**:
+**対象ノートブック**: 全ノートブック
 - `notebooks/index.py`
-- その他必要に応じて
+- `notebooks/user_activity.py`
+- `notebooks/time_analysis.py`
+- `notebooks/action_tracker.py`
+- `notebooks/anomaly_detection.py`
 
-**工数見積もり**: 1-2時間
+**実装日**: 2024-12-30
 
 ---
 

@@ -46,8 +46,8 @@ def _(mo):
 def _(mo):
     file_upload = mo.ui.file(
         filetypes=[".json", ".ndjson"],
-        multiple=False,
-        label="Audit Logファイルをアップロード",
+        multiple=True,  # 複数ファイル選択を有効化
+        label="Audit Logファイルをアップロード（複数選択可）",
     )
     file_upload
     return (file_upload,)
@@ -58,13 +58,12 @@ def _(file_upload, mo, pl):
     import json
     from datetime import datetime
 
-    df = None
-    if file_upload.value:
-        file_info = file_upload.value[0]
-        content = file_info.contents.decode("utf-8")
+    def parse_audit_log_file(file_info) -> list[dict]:
+        """単一ファイルをパースしてレコードリストを返す"""
+        content = file_info.contents.decode("utf-8").strip()
 
-        if file_info.name.endswith(".ndjson"):
-            lines = [json.loads(line) for line in content.strip().split("\n") if line]
+        if file_info.name.endswith(".ndjson") or not content.startswith("["):
+            lines = [json.loads(line) for line in content.split("\n") if line.strip()]
         else:
             lines = json.loads(content)
 
@@ -84,11 +83,30 @@ def _(file_upload, mo, pl):
                     "timestamp": ts,
                     "action": entry.get("action", "unknown"),
                     "actor": entry.get("actor", "unknown"),
+                    "_source_file": file_info.name,
                 }
             )
+        return records
 
-        df = pl.DataFrame(records)
-        mo.md(f"✅ {len(df)} イベントを読み込みました")
+    # 複数ファイルの読み込み
+    df = None
+    if file_upload.value:
+        all_records = []
+        file_summaries = []
+
+        for file_info in file_upload.value:
+            records = parse_audit_log_file(file_info)
+            all_records.extend(records)
+            file_summaries.append(f"- `{file_info.name}`: {len(records):,} イベント")
+
+        df = pl.DataFrame(all_records)
+        file_count = len(file_upload.value)
+        files_info = "\n".join(file_summaries)
+        mo.md(f"""
+        ✅ **{len(df):,} イベントを読み込みました** ({file_count} ファイル)
+
+        {files_info}
+        """)
     else:
         mo.md("⏳ ファイルをアップロードしてください")
     return (df,)
