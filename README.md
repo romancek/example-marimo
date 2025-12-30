@@ -125,8 +125,6 @@ uv run pre-commit install
 uv run pre-commit run markdownlint --all-files
 ```
 
-```
-
 ### コード品質チェック
 
 ```bash
@@ -171,7 +169,7 @@ example-marimo/
 
 ```bash
 # GitHub CLIのインストール
-brew install gh  # macOS
+# https://github.com/cli/cli/blob/trunk/docs/install_linux.md を参照
 
 # 認証
 gh auth login
