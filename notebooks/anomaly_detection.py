@@ -5,7 +5,6 @@
 #     "polars",
 #     "altair",
 #     "pandas",
-#     "pyarrow",
 # ]
 # ///
 """
@@ -231,7 +230,7 @@ def _(df, mo, pl):
 def _(alt, mo, off_hours_by_actor):
     if len(off_hours_by_actor) > 0:
         off_hours_chart = (
-            alt.Chart(off_hours_by_actor.to_pandas(use_pyarrow_extension_array=False))
+            alt.Chart(off_hours_by_actor.to_dicts())
             .mark_bar()
             .encode(
                 x=alt.X("off_hours_count:Q", title="時間外イベント数"),

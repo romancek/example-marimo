@@ -6,7 +6,6 @@
 #     "altair",
 #     "pydantic",
 #     "pandas",
-#     "pyarrow",
 # ]
 # ///
 """

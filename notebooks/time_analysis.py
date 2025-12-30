@@ -5,7 +5,6 @@
 #     "polars",
 #     "altair",
 #     "pandas",
-#     "pyarrow",
 # ]
 # ///
 """
@@ -187,7 +186,7 @@ def _(alt, df, granularity, mo, pl):
 
     # Create line chart
     ts_chart = (
-        alt.Chart(time_series.to_pandas(use_pyarrow_extension_array=False))
+        alt.Chart(time_series.to_dicts())
         .mark_line(point=True)
         .encode(
             x=alt.X(
@@ -228,7 +227,7 @@ def _(alt, df, mo, pl):
     )
 
     hourly_chart = (
-        alt.Chart(hourly_dist.to_pandas(use_pyarrow_extension_array=False))
+        alt.Chart(hourly_dist.to_dicts())
         .mark_bar()
         .encode(
             x=alt.X("hour:O", title="時間 (0-23)"),
@@ -272,7 +271,7 @@ def _(alt, df, mo, pl):
     )
 
     weekday_chart = (
-        alt.Chart(weekday_dist.to_pandas(use_pyarrow_extension_array=False))
+        alt.Chart(weekday_dist.to_dicts())
         .mark_bar()
         .encode(
             x=alt.X("weekday_name:N", title="曜日", sort=weekday_names),
@@ -290,6 +289,11 @@ def _(alt, df, mo, pl):
     )
 
     mo.ui.altair_chart(weekday_chart)
+
+
+@app.cell
+def _():
+    return
 
 
 @app.cell
