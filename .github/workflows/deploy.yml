@@ -1,0 +1,91 @@
+# .github/workflows/deploy.yml
+# GitHub Pages Deployment: marimo notebooks を WASM HTML としてエクスポート
+#
+# トリガー:
+# - mainブランチへのpush
+# - 手動実行（workflow_dispatch）
+#
+# 前提条件:
+# - GitHub Pages を GitHub Actions からのデプロイに設定済み
+#   (Settings > Pages > Source: "GitHub Actions")
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'notebooks/**'
+      - '.github/workflows/deploy.yml'
+      - '.github/scripts/build.py'
+      - 'templates/**'
+  workflow_dispatch:
+
+# 同一グループでの重複実行を防ぐ（GitHub Pagesデプロイは1つずつ）
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  UV_SYSTEM_PYTHON: 1
+
+jobs:
+  # ============================================================
+  # Build Job: marimo notebooks を HTML/WASM にエクスポート
+  # ============================================================
+  build:
+    name: 🔨 Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 🚀 Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: 📦 Install dependencies
+        run: |
+          uv sync
+
+      - name: 📄 Export notebooks to WASM HTML
+        run: |
+          # ビルドスクリプトを実行
+          uv run python .github/scripts/build.py --output-dir _site
+
+      - name: 📂 Show generated files
+        run: |
+          echo "Generated files:"
+          find _site -type f | head -50
+
+      - name: 📤 Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  # ============================================================
+  # Deploy Job: GitHub Pages へデプロイ
+  # ============================================================
+  deploy:
+    name: 🚀 Deploy
+    needs: build
+    runs-on: ubuntu-latest
+
+    # GitHub Pages デプロイに必要な権限
+    permissions:
+      pages: write
+      id-token: write
+
+    # デプロイ環境設定
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: 🌐 Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

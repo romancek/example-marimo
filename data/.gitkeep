@@ -1,0 +1,6 @@
+# data/.gitkeep
+# This directory is for storing audit log data files.
+# Add your JSON/NDJSON audit log exports here.
+#
+# To generate test data:
+#   python scripts/generate_test_data.py --output data/test_audit_log.json --count 10000

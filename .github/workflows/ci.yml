@@ -1,0 +1,90 @@
+# .github/workflows/ci.yml
+# CI Pipeline: Lint, Validate Notebooks
+#
+# トリガー:
+# - main/developブランチへのpush
+# - Pull Request
+# - 手動実行（workflow_dispatch）
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+# 同一ブランチでの重複実行を防ぐ
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  UV_SYSTEM_PYTHON: 1
+
+jobs:
+  # ============================================================
+  # Lint Job: Ruff による静的解析
+  # ============================================================
+  lint:
+    name: 🔍 Lint (Ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 🚀 Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: 📦 Install dependencies
+        run: |
+          uv sync
+
+      - name: 🔍 Run Ruff linter
+        run: |
+          uv run ruff check --output-format=github .
+
+      - name: 🎨 Run Ruff formatter (check mode)
+        run: |
+          uv run ruff format --check .
+
+  # ============================================================
+  # Notebook Validation: marimo ノートブックの構文チェック
+  # ============================================================
+  validate-notebooks:
+    name: 📓 Validate Notebooks
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 🚀 Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: 📦 Install dependencies
+        run: |
+          uv sync
+
+      - name: 📓 Validate marimo notebooks syntax
+        run: |
+          # marimoノートブックがPythonとして有効かチェック
+          for notebook in notebooks/*.py; do
+            echo "Validating $notebook..."
+            uv run python -m py_compile "$notebook"
+          done
+
+      - name: 🔍 Check notebooks with Ruff
+        run: |
+          uv run ruff check notebooks/
