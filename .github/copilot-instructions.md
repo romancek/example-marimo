@@ -17,7 +17,7 @@
 
 ```
 notebooks/             # marimoノートブック（メインコンテンツ）
-├── index.py           # ダッシュボード・ナビゲーション
+├── dashboard.py       # ダッシュボード・ナビゲーション
 ├── user_activity.py   # ユーザー分析
 ├── time_analysis.py   # 時系列分析
 ├── action_tracker.py  # アクション追跡

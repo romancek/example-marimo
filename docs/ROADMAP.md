@@ -19,7 +19,7 @@ ______________________________________________________________________
 
 **対象ノートブック**: 全ノートブック
 
-- `notebooks/index.py`
+- `notebooks/dashboard.py`
 - `notebooks/user_activity.py`
 - `notebooks/time_analysis.py`
 - `notebooks/action_tracker.py`
