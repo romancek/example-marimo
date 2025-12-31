@@ -34,7 +34,7 @@ GitHub OrganizationのAudit Log（JSON形式）を分析するためのインタ
 
 | 機能               | 説明                                 | ノートブック           |
 | ------------------ | ------------------------------------ | ---------------------- |
-| **ダッシュボード** | ナビゲーション、複数ファイルアップロード | `index.py`             |
+| **ダッシュボード** | ナビゲーション、複数ファイルアップロード | `dashboard.py`             |
 | **ユーザー別分析** | ユーザーごとのアクション数・分布     | `user_activity.py`     |
 | **時系列分析**     | 時間帯別/日別/週別トレンド           | `time_analysis.py`     |
 | **アクション追跡** | アクション種別フィルタ、検索         | `action_tracker.py`    |
@@ -64,7 +64,7 @@ uv sync
 
 ```bash
 # メインのダッシュボードを開く
-uv run marimo edit notebooks/index.py
+uv run marimo edit notebooks/dashboard.py
 
 # または特定の分析ノートブック
 uv run marimo edit notebooks/user_activity.py
@@ -83,7 +83,7 @@ marimoノートブックをWASM-Powered HTMLとしてエクスポートし、Git
 
 ```bash
 # 単一ノートブックをエクスポート
-uv run marimo export html-wasm notebooks/index.py -o dist/index.html --mode run
+uv run marimo export html-wasm notebooks/dashboard.py -o dist/dashboard.html --mode run
 
 # 全ノートブックをエクスポート
 for nb in notebooks/*.py; do
@@ -151,7 +151,7 @@ uv run ruff check . --fix
 ```
 example-marimo/
 ├── notebooks/                  # marimo ノートブック
-│   ├── index.py               # ダッシュボード（メインページ）
+│   ├── dashboard.py           # ダッシュボード（メインページ）
 │   ├── user_activity.py       # ユーザー別アクティビティ分析
 │   ├── time_analysis.py       # 時系列・トレンド分析
 │   ├── action_tracker.py      # アクション検索・追跡

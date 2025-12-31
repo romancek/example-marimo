@@ -186,7 +186,7 @@ ______________________________________________________________________
 
 #### 実装されている機能（重複）
 
-**index.py**:
+**dashboard.py**:
 
 - ファイルアップロードUI
 - JSON/NDJSONパース（独自実装）
@@ -347,7 +347,7 @@ ______________________________________________________________________
 ```
 維持:
 ├── notebooks/              # メインコンテンツ
-│   ├── index.py
+│   ├── dashboard.py
 │   ├── action_tracker.py
 │   ├── anomaly_detection.py
 │   ├── user_activity.py
@@ -454,7 +454,7 @@ ______________________________________________________________________
 
 ```
 notebooks/
-├── index.py                # ナビゲーション画面
+├── dashboard.py            # ナビゲーション画面
 ├── action_tracker.py       # アクション追跡
 ├── anomaly_detection.py    # 異常検知
 ├── user_activity.py        # ユーザー活動分析
@@ -562,7 +562,7 @@ ______________________________________________________________________
 
 ```python
 import importlib.util
-spec = importlib.util.spec_from_file_location("notebook", "notebooks/index.py")
+spec = importlib.util.spec_from_file_location("notebook", "notebooks/dashboard.py")
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 app = module.app  # marimo.App
@@ -741,7 +741,7 @@ ______________________________________________________________________
 - [ ] 実装時間: 2時間
 - [ ] 依存: Task 2.1, marimoのセル実行モデル理解
 
-#### Task 2.3: index.pyのテスト
+#### Task 2.3: dashboard.pyのテスト
 
 - [ ] `test_index_cells_execute()` 実装
   - [ ] 各セルが例外なく実行できることを確認
