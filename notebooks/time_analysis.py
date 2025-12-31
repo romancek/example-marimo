@@ -186,7 +186,7 @@ def _(alt, df, granularity, mo, pl):
 
     # Create line chart
     ts_chart = (
-        alt.Chart(time_series.to_dicts())
+        alt.Chart(alt.Data(values=time_series.to_dicts()))
         .mark_line(point=True)
         .encode(
             x=alt.X(
@@ -227,7 +227,7 @@ def _(alt, df, mo, pl):
     )
 
     hourly_chart = (
-        alt.Chart(hourly_dist.to_dicts())
+        alt.Chart(alt.Data(values=hourly_dist.to_dicts()))
         .mark_bar()
         .encode(
             x=alt.X("hour:O", title="時間 (0-23)"),
@@ -271,7 +271,7 @@ def _(alt, df, mo, pl):
     )
 
     weekday_chart = (
-        alt.Chart(weekday_dist.to_dicts())
+        alt.Chart(alt.Data(values=weekday_dist.to_dicts()))
         .mark_bar()
         .encode(
             x=alt.X("weekday_name:N", title="曜日", sort=weekday_names),

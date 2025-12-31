@@ -166,7 +166,7 @@ def _(alt, df, exclude_bots, mo, pl, top_n_slider):
 
     # Create chart
     chart = (
-        alt.Chart(top_users.to_dicts())
+        alt.Chart(alt.Data(values=top_users.to_dicts()))
         .mark_bar()
         .encode(
             x=alt.X("event_count:Q", title="イベント数"),
@@ -218,7 +218,7 @@ def _(action_breakdown, alt, mo, pl, user_selector):
         user_actions = action_breakdown.filter(pl.col("actor") == user_selector.value)
 
         action_chart = (
-            alt.Chart(user_actions.to_dicts())
+            alt.Chart(alt.Data(values=user_actions.to_dicts()))
             .mark_bar()
             .encode(
                 x=alt.X("count:Q", title="回数"),
