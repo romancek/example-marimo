@@ -122,6 +122,52 @@ def _(df, mo):
 
 
 @app.cell
+def _(df, mo, pl):
+    # Get data range
+    min_ts = df.select(pl.col("timestamp").min()).item()
+    max_ts = df.select(pl.col("timestamp").max()).item()
+
+    # Date range selector
+    date_range = mo.ui.date_range(
+        start=min_ts.date(),
+        stop=max_ts.date(),
+        label="分析対象期間",
+    )
+    mo.md(f"""
+    ## 📅 データ期間
+
+    - **全データ**: {min_ts.date()} 〜 {max_ts.date()} ({(max_ts - min_ts).days} 日間)
+    """)
+    return (date_range,)
+
+
+@app.cell
+def _(date_range, mo):
+    date_range
+
+
+@app.cell
+def _(date_range, datetime, df, mo, pl):
+    # Filter by date range
+    if date_range.value:
+        start_date, end_date = date_range.value
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        end_dt = datetime.combine(end_date, datetime.max.time())
+        filtered_df = df.filter(
+            (pl.col("timestamp") >= start_dt) & (pl.col("timestamp") <= end_dt)
+        )
+    else:
+        filtered_df = df
+
+    mo.md(f"""
+    ### 📊 選択期間のデータ
+
+    - **イベント数**: {len(filtered_df):,} / {len(df):,}
+    """)
+    return (filtered_df,)
+
+
+@app.cell
 def _(mo):
     mo.md(r"""
     ## 🚨 危険なアクション
@@ -155,15 +201,15 @@ def _():
 
 
 @app.cell
-def _(DANGEROUS_ACTIONS, HIGH_RISK_ACTIONS, df, mo, pl):
+def _(DANGEROUS_ACTIONS, HIGH_RISK_ACTIONS, filtered_df, mo, pl):
     # Detect dangerous actions
-    dangerous_events = df.filter(pl.col("action").is_in(list(DANGEROUS_ACTIONS))).sort(
-        "timestamp", descending=True
-    )
+    dangerous_events = filtered_df.filter(
+        pl.col("action").is_in(list(DANGEROUS_ACTIONS))
+    ).sort("timestamp", descending=True)
 
-    high_risk_events = df.filter(pl.col("action").is_in(list(HIGH_RISK_ACTIONS))).sort(
-        "timestamp", descending=True
-    )
+    high_risk_events = filtered_df.filter(
+        pl.col("action").is_in(list(HIGH_RISK_ACTIONS))
+    ).sort("timestamp", descending=True)
 
     dangerous_summary = mo.md(f"""
     ### 検出結果

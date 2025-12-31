@@ -122,13 +122,54 @@ def _(df, mo):
 
 @app.cell
 def _(df, mo, pl):
+    # Get data range
+    min_ts = df.select(pl.col("timestamp").min()).item()
+    max_ts = df.select(pl.col("timestamp").max()).item()
+
+    # Date range selector
+    date_range = mo.ui.date_range(
+        start=min_ts.date(),
+        stop=max_ts.date(),
+        label="分析対象期間",
+    )
+    mo.md(f"""
+    ## 📅 データ期間
+
+    - **全データ**: {min_ts.date()} 〜 {max_ts.date()} ({(max_ts - min_ts).days} 日間)
+    """)
+    return (date_range,)
+
+
+@app.cell
+def _(date_range, mo):
+    date_range
+
+
+@app.cell
+def _(date_range, datetime, df, mo, pl):
+    # Filter by date range
+    if date_range.value:
+        start_date, end_date = date_range.value
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        end_dt = datetime.combine(end_date, datetime.max.time())
+        base_df = df.filter(
+            (pl.col("timestamp") >= start_dt) & (pl.col("timestamp") <= end_dt)
+        )
+    else:
+        base_df = df
+
     # Get unique actions
     unique_actions = (
-        df.select(pl.col("action").unique()).sort("action")["action"].to_list()
+        base_df.select(pl.col("action").unique()).sort("action")["action"].to_list()
     )
 
-    mo.md(f"## 📋 アクション一覧 ({len(unique_actions)} 種類)")
-    return (unique_actions,)
+    mo.md(f"""
+    ## 📊 選択期間のデータ
+
+    - **イベント数**: {len(base_df):,} / {len(df):,}
+    - **アクション種類**: {len(unique_actions)}
+    """)
+    return base_df, unique_actions
 
 
 @app.cell
@@ -153,9 +194,9 @@ def _(mo):
 
 
 @app.cell
-def _(action_filter, df, mo, pl, search_text):
+def _(action_filter, base_df, mo, pl, search_text):
     # Apply filters
-    filtered_df = df
+    filtered_df = base_df
 
     if action_filter.value:
         filtered_df = filtered_df.filter(pl.col("action").is_in(action_filter.value))

@@ -118,17 +118,49 @@ def _(df, mo):
 
 @app.cell
 def _(df, mo, pl):
-    # Time range summary
+    # Get data range
     min_ts = df.select(pl.col("timestamp").min()).item()
     max_ts = df.select(pl.col("timestamp").max()).item()
 
+    # Date range selector
+    date_range = mo.ui.date_range(
+        start=min_ts.date(),
+        stop=max_ts.date(),
+        label="分析対象期間",
+    )
     mo.md(f"""
     ## 📅 データ期間
 
-    - **開始**: {min_ts}
-    - **終了**: {max_ts}
-    - **期間**: {(max_ts - min_ts).days} 日間
+    - **全データ**: {min_ts.date()} 〜 {max_ts.date()} ({(max_ts - min_ts).days} 日間)
     """)
+    return date_range, max_ts, min_ts
+
+
+@app.cell
+def _(date_range, mo):
+    date_range
+
+
+@app.cell
+def _(date_range, datetime, df, mo, pl):
+    # Filter by date range
+    if date_range.value:
+        start_date, end_date = date_range.value
+        # Convert to datetime for filtering
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        end_dt = datetime.combine(end_date, datetime.max.time())
+        filtered_df = df.filter(
+            (pl.col("timestamp") >= start_dt) & (pl.col("timestamp") <= end_dt)
+        )
+    else:
+        filtered_df = df
+
+    mo.md(f"""
+    ### 📊 選択期間のデータ
+
+    - **イベント数**: {len(filtered_df):,} / {len(df):,}
+    """)
+    return (filtered_df,)
 
 
 @app.cell
@@ -141,32 +173,36 @@ def _(mo):
 
 
 @app.cell
-def _(alt, df, granularity, mo, pl):
+def _(alt, filtered_df, granularity, mo, pl):
     # Aggregate by selected granularity
     if granularity.value == "hour":
         time_series = (
-            df.with_columns(pl.col("timestamp").dt.truncate("1h").alias("period"))
+            filtered_df.with_columns(
+                pl.col("timestamp").dt.truncate("1h").alias("period")
+            )
             .group_by("period")
             .agg(pl.len().alias("count"))
             .sort("period")
         )
     elif granularity.value == "day":
         time_series = (
-            df.with_columns(pl.col("timestamp").dt.date().alias("period"))
+            filtered_df.with_columns(pl.col("timestamp").dt.date().alias("period"))
             .group_by("period")
             .agg(pl.len().alias("count"))
             .sort("period")
         )
     elif granularity.value == "week":
         time_series = (
-            df.with_columns(pl.col("timestamp").dt.truncate("1w").alias("period"))
+            filtered_df.with_columns(
+                pl.col("timestamp").dt.truncate("1w").alias("period")
+            )
             .group_by("period")
             .agg(pl.len().alias("count"))
             .sort("period")
         )
     else:  # month
         time_series = (
-            df.with_columns(
+            filtered_df.with_columns(
                 pl.col("timestamp").dt.month().alias("month"),
                 pl.col("timestamp").dt.year().alias("year"),
             )
@@ -193,7 +229,7 @@ def _(alt, df, granularity, mo, pl):
                 "period:T" if granularity.value != "month" else "period:N", title="期間"
             ),
             y=alt.Y("count:Q", title="イベント数"),
-            tooltip=["period:N", "count:Q"],
+            tooltip=["period:T", "count:Q"],
         )
         .properties(
             title=f"アクティビティ推移（{granularity.value}別）", width=800, height=400
@@ -217,10 +253,10 @@ def _(mo):
 
 
 @app.cell
-def _(alt, df, mo, pl):
+def _(alt, filtered_df, mo, pl):
     # Hourly distribution
     hourly_dist = (
-        df.with_columns(pl.col("timestamp").dt.hour().alias("hour"))
+        filtered_df.with_columns(pl.col("timestamp").dt.hour().alias("hour"))
         .group_by("hour")
         .agg(pl.len().alias("count"))
         .sort("hour")
@@ -255,11 +291,11 @@ def _(mo):
 
 
 @app.cell
-def _(alt, df, mo, pl):
+def _(alt, filtered_df, mo, pl):
     # Weekday distribution
     weekday_names = ["月", "火", "水", "木", "金", "土", "日"]
     weekday_dist = (
-        df.with_columns(pl.col("timestamp").dt.weekday().alias("weekday"))
+        filtered_df.with_columns(pl.col("timestamp").dt.weekday().alias("weekday"))
         .group_by("weekday")
         .agg(pl.len().alias("count"))
         .sort("weekday")
@@ -297,15 +333,15 @@ def _():
 
 
 @app.cell
-def _(df, mo, pl):
+def _(filtered_df, mo, pl):
     # Off-hours analysis
-    off_hours = df.filter(
+    off_hours = filtered_df.filter(
         (pl.col("timestamp").dt.hour() < 9)
         | (pl.col("timestamp").dt.hour() >= 18)
         | (pl.col("timestamp").dt.weekday() >= 5)
     )
 
-    off_hours_pct = len(off_hours) / len(df) * 100
+    off_hours_pct = len(off_hours) / max(len(filtered_df), 1) * 100
 
     mo.md(f"""
     ## 🌙 時間外アクティビティ

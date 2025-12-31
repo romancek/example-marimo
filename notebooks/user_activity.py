@@ -122,20 +122,57 @@ def _(df, mo):
 
 @app.cell
 def _(df, mo, pl):
+    # Get data range
+    min_ts = df.select(pl.col("timestamp").min()).item()
+    max_ts = df.select(pl.col("timestamp").max()).item()
+
+    # Date range selector
+    date_range = mo.ui.date_range(
+        start=min_ts.date(),
+        stop=max_ts.date(),
+        label="分析対象期間",
+    )
+    mo.md(f"""
+    ## 📅 データ期間
+
+    - **全データ**: {min_ts.date()} 〜 {max_ts.date()} ({(max_ts - min_ts).days} 日間)
+    """)
+    return (date_range,)
+
+
+@app.cell
+def _(date_range, mo):
+    date_range
+
+
+@app.cell
+def _(date_range, datetime, df, mo, pl):
+    # Filter by date range
+    if date_range.value:
+        start_date, end_date = date_range.value
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        end_dt = datetime.combine(end_date, datetime.max.time())
+        filtered_df = df.filter(
+            (pl.col("timestamp") >= start_dt) & (pl.col("timestamp") <= end_dt)
+        )
+    else:
+        filtered_df = df
+
     # User activity summary
     user_counts = (
-        df.group_by("actor")
+        filtered_df.group_by("actor")
         .agg(pl.len().alias("event_count"))
         .sort("event_count", descending=True)
     )
 
     mo.md(f"""
-    ## 📊 サマリー
+    ## 📊 サマリー（選択期間）
 
     - **総ユーザー数**: {user_counts.height}
-    - **総イベント数**: {df.height}
-    - **平均イベント/ユーザー**: {df.height / user_counts.height:.1f}
+    - **総イベント数**: {filtered_df.height:,} / {df.height:,}
+    - **平均イベント/ユーザー**: {filtered_df.height / max(user_counts.height, 1):.1f}
     """)
+    return filtered_df, user_counts
 
 
 @app.cell
@@ -150,15 +187,15 @@ def _(mo):
 
 
 @app.cell
-def _(alt, df, exclude_bots, mo, pl, top_n_slider):
+def _(alt, filtered_df, exclude_bots, mo, pl, top_n_slider):
     # Filter bots if needed
-    filtered_df = df
+    analysis_df = filtered_df
     if exclude_bots.value:
-        filtered_df = df.filter(~pl.col("actor").str.contains(r"\[bot\]"))
+        analysis_df = filtered_df.filter(~pl.col("actor").str.contains(r"\[bot\]"))
 
     # Get top users
     top_users = (
-        filtered_df.group_by("actor")
+        analysis_df.group_by("actor")
         .agg(pl.len().alias("event_count"))
         .sort("event_count", descending=True)
         .head(top_n_slider.value)
