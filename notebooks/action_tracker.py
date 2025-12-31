@@ -195,7 +195,7 @@ def _(action_summary, alt, mo):
                 x=alt.X("count:Q", title="件数"),
                 y=alt.Y("action:N", sort="-x", title="アクション"),
                 color=alt.Color("count:Q", scale=alt.Scale(scheme="viridis")),
-                tooltip=["action", "count"],
+                tooltip=["action:N", "count:Q"],
             )
             .properties(title="アクション分布（上位20件）", width=600, height=400)
         )
@@ -255,7 +255,7 @@ def _(alt, filtered_df, mo, pl):
             .encode(
                 x=alt.X("count:Q", title="イベント数"),
                 y=alt.Y("repo:N", sort="-x", title="リポジトリ"),
-                tooltip=["repo", "count"],
+                tooltip=["repo:N", "count:Q"],
             )
             .properties(
                 title="リポジトリ別イベント数（上位15件）", width=600, height=300

@@ -236,7 +236,7 @@ def _(alt, mo, off_hours_by_actor):
                 x=alt.X("off_hours_count:Q", title="時間外イベント数"),
                 y=alt.Y("actor:N", sort="-x", title="ユーザー"),
                 color=alt.value("#f58518"),
-                tooltip=["actor", "off_hours_count"],
+                tooltip=["actor:N", "off_hours_count:Q"],
             )
             .properties(
                 title="時間外アクティビティが多いユーザー（Bot除外）",
