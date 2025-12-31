@@ -233,7 +233,7 @@ def _(file_upload, mo):
 
 
 @app.cell
-def _(mo) -> None:
+def _(mo):
     mo.md(r"""
     # 📊カスタム分析🧐
     以降ではDataFrame型のdf変数を使って自由に分析してください！
