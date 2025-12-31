@@ -117,6 +117,17 @@ uv run pre-commit run --all-files
 
 pre-commitでMarkdownのLint（markdownlint-cli）を実行します。設定は `.markdownlint.yaml` にあり、各ルールの意味を日本語コメントで記載しています。
 
+**前提条件**: Node.js が必要です（[nvm](https://github.com/nvm-sh/nvm) でのインストールを推奨）
+
+```bash
+# nvmのインストール（まだの場合）
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+
+# Node.js LTSのインストール
+nvm install --lts
+nvm use --lts
+```
+
 ```bash
 # フックのインストール（未設定の場合）
 uv run pre-commit install
