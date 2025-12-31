@@ -230,13 +230,13 @@ def _(df, mo, pl):
 def _(alt, mo, off_hours_by_actor):
     if len(off_hours_by_actor) > 0:
         off_hours_chart = (
-            alt.Chart(off_hours_by_actor.to_dicts())
+            alt.Chart(alt.Data(values=off_hours_by_actor.to_dicts()))
             .mark_bar()
             .encode(
                 x=alt.X("off_hours_count:Q", title="時間外イベント数"),
                 y=alt.Y("actor:N", sort="-x", title="ユーザー"),
                 color=alt.value("#f58518"),
-                tooltip=["actor", "off_hours_count"],
+                tooltip=["actor:N", "off_hours_count:Q"],
             )
             .properties(
                 title="時間外アクティビティが多いユーザー（Bot除外）",

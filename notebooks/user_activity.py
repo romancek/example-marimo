@@ -166,13 +166,13 @@ def _(alt, df, exclude_bots, mo, pl, top_n_slider):
 
     # Create chart
     chart = (
-        alt.Chart(top_users.to_dicts())
+        alt.Chart(alt.Data(values=top_users.to_dicts()))
         .mark_bar()
         .encode(
             x=alt.X("event_count:Q", title="イベント数"),
             y=alt.Y("actor:N", sort="-x", title="ユーザー"),
             color=alt.Color("event_count:Q", scale=alt.Scale(scheme="blues")),
-            tooltip=["actor", "event_count"],
+            tooltip=["actor:N", "event_count:Q"],
         )
         .properties(
             title=f"Top {top_n_slider.value} アクティブユーザー", width=600, height=400
@@ -218,13 +218,13 @@ def _(action_breakdown, alt, mo, pl, user_selector):
         user_actions = action_breakdown.filter(pl.col("actor") == user_selector.value)
 
         action_chart = (
-            alt.Chart(user_actions.to_dicts())
+            alt.Chart(alt.Data(values=user_actions.to_dicts()))
             .mark_bar()
             .encode(
                 x=alt.X("count:Q", title="回数"),
                 y=alt.Y("action:N", sort="-x", title="アクション"),
                 color=alt.Color("action:N", legend=None),
-                tooltip=["action", "count"],
+                tooltip=["action:N", "count:Q"],
             )
             .properties(
                 title=f"{user_selector.value} のアクション内訳", width=600, height=300

@@ -186,14 +186,14 @@ def _(alt, df, granularity, mo, pl):
 
     # Create line chart
     ts_chart = (
-        alt.Chart(time_series.to_dicts())
+        alt.Chart(alt.Data(values=time_series.to_dicts()))
         .mark_line(point=True)
         .encode(
             x=alt.X(
                 "period:T" if granularity.value != "month" else "period:N", title="期間"
             ),
             y=alt.Y("count:Q", title="イベント数"),
-            tooltip=["period", "count"],
+            tooltip=["period:N", "count:Q"],
         )
         .properties(
             title=f"アクティビティ推移（{granularity.value}別）", width=800, height=400
@@ -227,7 +227,7 @@ def _(alt, df, mo, pl):
     )
 
     hourly_chart = (
-        alt.Chart(hourly_dist.to_dicts())
+        alt.Chart(alt.Data(values=hourly_dist.to_dicts()))
         .mark_bar()
         .encode(
             x=alt.X("hour:O", title="時間 (0-23)"),
@@ -237,7 +237,7 @@ def _(alt, df, mo, pl):
                 alt.value("#4c78a8"),  # Business hours
                 alt.value("#f58518"),  # Off hours
             ),
-            tooltip=["hour", "count"],
+            tooltip=["hour:O", "count:Q"],
         )
         .properties(
             title="時間帯別アクティビティ（オレンジ=時間外）", width=600, height=300
@@ -271,7 +271,7 @@ def _(alt, df, mo, pl):
     )
 
     weekday_chart = (
-        alt.Chart(weekday_dist.to_dicts())
+        alt.Chart(alt.Data(values=weekday_dist.to_dicts()))
         .mark_bar()
         .encode(
             x=alt.X("weekday_name:N", title="曜日", sort=weekday_names),
@@ -281,7 +281,7 @@ def _(alt, df, mo, pl):
                 alt.value("#f58518"),  # Weekend
                 alt.value("#4c78a8"),  # Weekday
             ),
-            tooltip=["weekday_name", "count"],
+            tooltip=["weekday_name:N", "count:Q"],
         )
         .properties(
             title="曜日別アクティビティ（オレンジ=週末）", width=500, height=300
