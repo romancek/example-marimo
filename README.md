@@ -39,6 +39,7 @@ GitHub OrganizationのAudit Log（JSON形式）を分析するためのインタ
 | **時系列分析**     | 時間帯別/日別/週別トレンド           | `time_analysis.py`     |
 | **アクション追跡** | アクション種別フィルタ、検索         | `action_tracker.py`    |
 | **異常検知**       | 危険アクション検出、大量操作警告     | `anomaly_detection.py` |
+| **休眠ユーザー分析** | 非アクティブメンバーの特定、Copilot利用状況 | `dormant_users.py` |
 
 ## 🚀 クイックスタート
 
@@ -71,6 +72,7 @@ uv run marimo edit notebooks/user_activity.py
 uv run marimo edit notebooks/time_analysis.py
 uv run marimo edit notebooks/anomaly_detection.py
 uv run marimo edit notebooks/action_tracker.py
+uv run marimo edit notebooks/dormant_users.py
 
 "複数の監査ログファイル"をまとめてアップロード可能です（すべてのノートブックで対応）。
 ```
@@ -155,7 +157,8 @@ example-marimo/
 │   ├── user_activity.py       # ユーザー別アクティビティ分析
 │   ├── time_analysis.py       # 時系列・トレンド分析
 │   ├── action_tracker.py      # アクション検索・追跡
-│   └── anomaly_detection.py   # 異常検知・アラート
+│   ├── anomaly_detection.py   # 異常検知・アラート
+│   └── dormant_users.py       # 休眠ユーザー分析
 │
 ├── data/                       # データファイル（.gitignore対象）
 │

@@ -21,7 +21,8 @@ notebooks/             # marimoノートブック（メインコンテンツ）
 ├── user_activity.py   # ユーザー分析
 ├── time_analysis.py   # 時系列分析
 ├── action_tracker.py  # アクション追跡
-└── anomaly_detection.py # 異常検知
+├── anomaly_detection.py # 異常検知
+└── dormant_users.py   # 休眠ユーザー分析
 ```
 
 **公開方法**: `marimo export html-wasm` → GitHub Pages
