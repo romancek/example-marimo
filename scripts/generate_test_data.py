@@ -2,16 +2,23 @@
 # scripts/generate_test_data.py
 """Generate realistic test data for GitHub Audit Log analysis.
 
-This script generates 10,000 audit log entries that simulate realistic
-GitHub Organization activity patterns, including:
-- Normal business hours activity
-- Anomalous patterns (late night, bulk operations, dangerous actions)
-- Various action types with realistic distributions
-- Geographic diversity (IP addresses and locations)
+This script generates synthetic data that mimics real GitHub data:
+1. Audit Logs - Organization activity logs with various patterns
+2. Org Members - Organization member list from GitHub API
+3. Copilot Seats - Copilot seat assignment data for multiple organizations
 
 Usage:
-    python scripts/generate_test_data.py
-    python scripts/generate_test_data.py --count 50000 --output data/large_audit_log.ndjson
+    # Generate all data types (recommended for dormant user analysis)
+    python scripts/generate_test_data.py --all
+
+    # Generate only audit logs
+    python scripts/generate_test_data.py -n 10000 -o data/test.ndjson
+
+    # Generate Org Members list
+    python scripts/generate_test_data.py --generate-members --members-count 50
+
+    # Generate Copilot Seats for 2 organizations
+    python scripts/generate_test_data.py --generate-copilot --copilot-orgs acme-corp contoso
 """
 
 from __future__ import annotations
@@ -149,6 +156,34 @@ SUSPICIOUS_COUNTRIES = [
     {"code": "RU", "name": "Russia"},
     {"code": "CN", "name": "China"},
     {"code": "KP", "name": "North Korea"},
+]
+
+# Additional users for dormant user analysis
+# These users appear in Org Members but have low/no activity in audit logs
+DORMANT_USERS = [
+    {"name": "dormant-user-1", "id": 4001, "ip_pool": ["10.4.1.1"]},
+    {"name": "dormant-user-2", "id": 4002, "ip_pool": ["10.4.2.1"]},
+    {"name": "dormant-user-3", "id": 4003, "ip_pool": ["10.4.3.1"]},
+    {"name": "low-activity-1", "id": 4004, "ip_pool": ["10.4.4.1"]},
+    {"name": "low-activity-2", "id": 4005, "ip_pool": ["10.4.5.1"]},
+]
+
+# Users who left the organization (in audit logs but not in current members)
+FORMER_USERS = [
+    {"name": "former-dev-mike", "id": 5001, "ip_pool": ["10.5.1.1"]},
+    {"name": "former-qa-nancy", "id": 5002, "ip_pool": ["10.5.2.1"]},
+]
+
+# All organization members (for Org Members list generation)
+# Excludes FORMER_USERS and BOT_USERS
+ALL_ORG_MEMBERS = ADMIN_USERS + REGULAR_USERS + DORMANT_USERS
+
+# Copilot configuration
+COPILOT_EDITORS = [
+    "vscode/1.85.0/copilot/1.142.0",
+    "vscode/1.86.0/copilot/1.143.0",
+    "JetBrains-IU/2023.3/copilot/1.4.5",
+    "neovim/0.9.4/copilot/1.11.1",
 ]
 
 
@@ -600,6 +635,199 @@ def save_as_ndjson(events: list[dict[str, Any]], path: Path) -> None:
     print(f"Saved {len(events)} events to {path} (NDJSON format)")
 
 
+# ============================================================
+# Org Members Generation
+# ============================================================
+
+
+def generate_org_members(
+    members: list[dict[str, Any]] | None = None,
+    include_all: bool = True,
+) -> list[dict[str, Any]]:
+    """Generate Org Members list mimicking GitHub API response.
+
+    Args:
+        members: Custom member list. If None, uses ALL_ORG_MEMBERS.
+        include_all: If True, include all default members.
+
+    Returns:
+        List of member objects as returned by GitHub API /orgs/{org}/members
+    """
+    if members is None:
+        members = ALL_ORG_MEMBERS if include_all else []
+
+    org_members = []
+    for member in members:
+        member_data = {
+            "login": member["name"],
+            "id": member["id"],
+            "node_id": f"MDQ6VXNlcn{member['id']}",
+            "avatar_url": f"https://avatars.githubusercontent.com/u/{member['id']}?v=4",
+            "gravatar_id": "",
+            "url": f"https://api.github.com/users/{member['name']}",
+            "html_url": f"https://github.com/{member['name']}",
+            "followers_url": f"https://api.github.com/users/{member['name']}/followers",
+            "following_url": f"https://api.github.com/users/{member['name']}/following{{/other_user}}",
+            "gists_url": f"https://api.github.com/users/{member['name']}/gists{{/gist_id}}",
+            "starred_url": f"https://api.github.com/users/{member['name']}/starred{{/owner}}{{/repo}}",
+            "subscriptions_url": f"https://api.github.com/users/{member['name']}/subscriptions",
+            "organizations_url": f"https://api.github.com/users/{member['name']}/orgs",
+            "repos_url": f"https://api.github.com/users/{member['name']}/repos",
+            "events_url": f"https://api.github.com/users/{member['name']}/events{{/privacy}}",
+            "received_events_url": f"https://api.github.com/users/{member['name']}/received_events",
+            "type": "User",
+            "user_view_type": "public",
+            "site_admin": False,
+        }
+        org_members.append(member_data)
+
+    return org_members
+
+
+def save_org_members(members: list[dict[str, Any]], path: Path) -> None:
+    """Save Org Members list as JSON."""
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(members, f, indent=2, ensure_ascii=False)
+    print(f"Saved {len(members)} members to {path}")
+
+
+# ============================================================
+# Copilot Seats Generation
+# ============================================================
+
+
+def generate_copilot_seats(
+    org_name: str,
+    members: list[dict[str, Any]] | None = None,
+    coverage_ratio: float = 0.8,
+) -> dict[str, Any]:
+    """Generate Copilot Seats data mimicking GitHub API response.
+
+    Activity patterns:
+    - Active (60%): last_activity within 1 month
+    - Low activity (25%): last_activity 1-3 months ago
+    - Dormant (10%): last_activity 3+ months ago
+    - Never used (5%): pending_cancellation_date or null last_activity
+
+    Args:
+        org_name: Organization name for the Copilot data.
+        members: Custom member list. If None, uses ALL_ORG_MEMBERS.
+        coverage_ratio: Ratio of members who have Copilot seats (0.0-1.0).
+
+    Returns:
+        Copilot seats response object as returned by GitHub API.
+    """
+    if members is None:
+        members = ALL_ORG_MEMBERS
+
+    now = datetime.now(UTC)
+    seats = []
+
+    # Select members who have Copilot seats
+    seat_count = int(len(members) * coverage_ratio)
+    seated_members = random.sample(members, min(seat_count, len(members)))
+
+    for member in seated_members:
+        # Determine activity pattern
+        pattern = random.random()
+        if pattern < 0.60:
+            # Active: within 1 month
+            days_ago = random.randint(0, 30)
+            last_activity = now - timedelta(days=days_ago)
+            last_activity_editor = random.choice(COPILOT_EDITORS)
+            pending_cancellation = None
+        elif pattern < 0.85:
+            # Low activity: 1-3 months ago
+            days_ago = random.randint(31, 90)
+            last_activity = now - timedelta(days=days_ago)
+            last_activity_editor = random.choice(COPILOT_EDITORS)
+            pending_cancellation = None
+        elif pattern < 0.95:
+            # Dormant: 3+ months ago
+            days_ago = random.randint(91, 180)
+            last_activity = now - timedelta(days=days_ago)
+            last_activity_editor = random.choice(COPILOT_EDITORS)
+            pending_cancellation = None
+        else:
+            # Never used: null last_activity or pending cancellation
+            last_activity = None
+            last_activity_editor = None
+            # 50% chance of pending cancellation
+            if random.random() < 0.5:
+                pending_cancellation = (
+                    now + timedelta(days=random.randint(1, 30))
+                ).strftime("%Y-%m-%d")
+            else:
+                pending_cancellation = None
+
+        # Created date (assigned date)
+        created_days_ago = random.randint(30, 365)
+        created_at = (now - timedelta(days=created_days_ago)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+
+        # Updated date
+        if last_activity:
+            updated_at = last_activity.strftime("%Y-%m-%dT%H:%M:%SZ")
+        else:
+            updated_at = created_at
+
+        seat_data = {
+            "created_at": created_at,
+            "updated_at": updated_at,
+            "pending_cancellation_date": pending_cancellation,
+            "last_activity_at": last_activity.strftime("%Y-%m-%dT%H:%M:%SZ")
+            if last_activity
+            else None,
+            "last_activity_editor": last_activity_editor,
+            "assignee": {
+                "login": member["name"],
+                "id": member["id"],
+                "node_id": f"MDQ6VXNlcn{member['id']}",
+                "avatar_url": f"https://avatars.githubusercontent.com/u/{member['id']}?v=4",
+                "gravatar_id": "",
+                "url": f"https://api.github.com/users/{member['name']}",
+                "html_url": f"https://github.com/{member['name']}",
+                "type": "User",
+                "site_admin": False,
+            },
+            "assigning_team": None,
+            "organization": {
+                "login": org_name,
+                "id": ORG_ID,
+                "node_id": f"MDEyOk9yZ2FuaXphdGlvbn{ORG_ID}",
+                "url": f"https://api.github.com/orgs/{org_name}",
+                "repos_url": f"https://api.github.com/orgs/{org_name}/repos",
+                "events_url": f"https://api.github.com/orgs/{org_name}/events",
+                "hooks_url": f"https://api.github.com/orgs/{org_name}/hooks",
+                "issues_url": f"https://api.github.com/orgs/{org_name}/issues",
+                "members_url": f"https://api.github.com/orgs/{org_name}/members{{/member}}",
+                "public_members_url": f"https://api.github.com/orgs/{org_name}/public_members{{/member}}",
+                "avatar_url": f"https://avatars.githubusercontent.com/u/{ORG_ID}?v=4",
+                "description": f"{org_name} organization",
+            },
+        }
+        seats.append(seat_data)
+
+    # Sort by last_activity_at (most recent first, nulls last)
+    seats.sort(
+        key=lambda x: x["last_activity_at"] or "0000-00-00T00:00:00Z",
+        reverse=True,
+    )
+
+    return {
+        "total_seats": len(seats),
+        "seats": seats,
+    }
+
+
+def save_copilot_seats(data: dict[str, Any], path: Path) -> None:
+    """Save Copilot Seats data as JSON."""
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    print(f"Saved {data['total_seats']} Copilot seats to {path}")
+
+
 def print_summary(events: list[dict[str, Any]]) -> None:
     """Print summary statistics of generated data."""
     print("\n" + "=" * 60)
@@ -665,50 +893,192 @@ def print_summary(events: list[dict[str, Any]]) -> None:
 # ============================================================
 
 
-def main() -> None:
-    """Main entry point."""
+def _create_argument_parser() -> argparse.ArgumentParser:
+    """Create and configure argument parser."""
     parser = argparse.ArgumentParser(
-        description="Generate realistic GitHub Audit Log test data"
+        description="Generate realistic GitHub test data (Audit Logs, Org Members, Copilot Seats)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+    # Generate all data types
+    python scripts/generate_test_data.py --all
+
+    # Generate only audit logs
+    python scripts/generate_test_data.py -n 10000 -o data/test.ndjson
+
+    # Generate Org Members list
+    python scripts/generate_test_data.py --generate-members
+
+    # Generate Copilot Seats for multiple organizations
+    python scripts/generate_test_data.py --generate-copilot --copilot-orgs acme-corp contoso
+        """,
+    )
+
+    # Common options
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Generate all data types (audit logs, org members, copilot seats)",
     )
     parser.add_argument(
+        "--seed", "-s", type=int, default=None, help="Random seed for reproducibility"
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        default=Path("data"),
+        help="Output directory for all generated files (default: data)",
+    )
+
+    # Audit log options
+    audit_group = parser.add_argument_group("Audit Log Options")
+    audit_group.add_argument(
         "--count",
         "-n",
         type=int,
         default=10000,
-        help="Number of events to generate (default: 10000)",
+        help="Number of audit log events to generate (default: 10000)",
     )
-    parser.add_argument(
+    audit_group.add_argument(
         "--output",
         "-o",
         type=Path,
-        default=Path("data/test_audit_log.ndjson"),
-        help="Output file path (default: data/test_audit_log.ndjson)",
+        default=None,
+        help="Output file path for audit logs (default: data/test_audit_log.ndjson)",
     )
-    parser.add_argument(
+    audit_group.add_argument(
         "--format",
         "-f",
         choices=["json", "ndjson"],
         default="ndjson",
-        help="Output format (default: ndjson)",
+        help="Output format for audit logs (default: ndjson)",
     )
-    parser.add_argument(
+    audit_group.add_argument(
         "--days",
         "-d",
         type=int,
         default=90,
         help="Number of days to span (default: 90)",
     )
-    parser.add_argument(
+    audit_group.add_argument(
         "--anomaly-ratio",
         "-a",
         type=float,
         default=0.05,
         help="Ratio of anomalous events (default: 0.05)",
     )
-    parser.add_argument(
-        "--seed", "-s", type=int, default=None, help="Random seed for reproducibility"
+
+    # Org Members options
+    members_group = parser.add_argument_group("Org Members Options")
+    members_group.add_argument(
+        "--generate-members",
+        action="store_true",
+        help="Generate Org Members list",
+    )
+    members_group.add_argument(
+        "--members-output",
+        type=Path,
+        default=None,
+        help="Output file path for org members (default: data/org_members.json)",
     )
 
+    # Copilot Seats options
+    copilot_group = parser.add_argument_group("Copilot Seats Options")
+    copilot_group.add_argument(
+        "--generate-copilot",
+        action="store_true",
+        help="Generate Copilot Seats data",
+    )
+    copilot_group.add_argument(
+        "--copilot-orgs",
+        nargs="+",
+        default=["example-org"],
+        help="Organization names for Copilot data (default: example-org)",
+    )
+    copilot_group.add_argument(
+        "--copilot-coverage",
+        type=float,
+        default=0.8,
+        help="Ratio of members with Copilot seats (default: 0.8)",
+    )
+
+    return parser
+
+
+def _run_audit_log_generation(args: argparse.Namespace) -> None:
+    """Generate audit log data."""
+    output_path = args.output or args.data_dir / "test_audit_log.ndjson"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    print(f"\n{'='*60}")
+    print("Generating Audit Logs")
+    print("=" * 60)
+    print(f"Generating {args.count} events over {args.days} days...")
+
+    events = generate_test_data(
+        count=args.count,
+        days_span=args.days,
+        anomaly_ratio=args.anomaly_ratio,
+    )
+
+    if args.format == "json":
+        save_as_json(events, output_path)
+    else:
+        save_as_ndjson(events, output_path)
+
+    print_summary(events)
+
+
+def _run_members_generation(args: argparse.Namespace) -> None:
+    """Generate org members data."""
+    members_output = args.members_output or args.data_dir / "org_members.json"
+    members_output.parent.mkdir(parents=True, exist_ok=True)
+
+    print(f"\n{'='*60}")
+    print("Generating Org Members")
+    print("=" * 60)
+
+    members = generate_org_members()
+    save_org_members(members, members_output)
+
+    print(f"Generated {len(members)} organization members")
+    print(f"  Admin users: {len(ADMIN_USERS)}")
+    print(f"  Regular users: {len(REGULAR_USERS)}")
+    print(f"  Dormant users: {len(DORMANT_USERS)}")
+
+
+def _run_copilot_generation(args: argparse.Namespace) -> None:
+    """Generate Copilot seats data."""
+    print(f"\n{'='*60}")
+    print("Generating Copilot Seats")
+    print("=" * 60)
+
+    for org_name in args.copilot_orgs:
+        copilot_output = args.data_dir / f"copilot_seats_{org_name}.json"
+        copilot_output.parent.mkdir(parents=True, exist_ok=True)
+
+        copilot_data = generate_copilot_seats(
+            org_name=org_name,
+            coverage_ratio=args.copilot_coverage,
+        )
+        save_copilot_seats(copilot_data, copilot_output)
+
+        # Activity summary
+        seats = copilot_data["seats"]
+        active_count = sum(1 for s in seats if s.get("last_activity_at"))
+        never_used = sum(1 for s in seats if not s.get("last_activity_at"))
+        pending = sum(1 for s in seats if s.get("pending_cancellation_date"))
+
+        print(f"  Organization: {org_name}")
+        print(f"    Total seats: {len(seats)}")
+        print(f"    Active (has last_activity): {active_count}")
+        print(f"    Never used: {never_used}")
+        print(f"    Pending cancellation: {pending}")
+
+
+def main() -> None:
+    """Main entry point."""
+    parser = _create_argument_parser()
     args = parser.parse_args()
 
     # Set random seed if provided
@@ -717,24 +1087,26 @@ def main() -> None:
         print(f"Using random seed: {args.seed}")
 
     # Create output directory
-    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.data_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate data
-    print(f"Generating {args.count} events over {args.days} days...")
-    events = generate_test_data(
-        count=args.count,
-        days_span=args.days,
-        anomaly_ratio=args.anomaly_ratio,
-    )
+    # Determine what to generate
+    generate_audit = not (args.generate_members or args.generate_copilot) or args.all
+    generate_members = args.generate_members or args.all
+    generate_copilot = args.generate_copilot or args.all
 
-    # Save
-    if args.format == "json":
-        save_as_json(events, args.output)
-    else:
-        save_as_ndjson(events, args.output)
+    # Run generators
+    if generate_audit:
+        _run_audit_log_generation(args)
 
-    # Print summary
-    print_summary(events)
+    if generate_members:
+        _run_members_generation(args)
+
+    if generate_copilot:
+        _run_copilot_generation(args)
+
+    print(f"\n{'='*60}")
+    print("Data generation complete!")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
