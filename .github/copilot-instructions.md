@@ -70,7 +70,7 @@ __generated_with = "0.18.0"
 app = marimo.App(width="medium")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     import marimo as mo
     import polars as pl
@@ -80,7 +80,7 @@ def _():
     return mo, pl, alt, json, datetime
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     title = mo.md(r"""
     # タイトル
@@ -93,19 +93,20 @@ def _(mo):
 
 ### 重要なルール
 
+1. **コード非表示**: すべてのセルに`@app.cell(hide_code=True)`を使用
 1. **結果の表示**: `mo.md()`, `mo.ui.*()` の結果は**必ずセルの最後で返すか評価する**
 1. **変数名の一意性**: セル間で同じ変数名を使わない（`result`ではなく`user_result`など）
 1. **mo.stop()の活用**: 条件分岐は`mo.stop()`を使用
 
 ```python
-# ✅ Good: 結果を返す
-@app.cell
+# ✅ Good: hide_code=Trueでコードを非表示、結果を返す
+@app.cell(hide_code=True)
 def _(mo):
     title = mo.md("# タイトル")
     title  # 評価して表示
     return (title,)
 
-# ❌ Bad: 結果を返さない（表示されない）
+# ❌ Bad: hide_code=Trueがない、結果を返さない
 @app.cell
 def _(mo):
     mo.md("# タイトル")
@@ -115,7 +116,7 @@ def _(mo):
 ### ファイルアップロード
 
 ```python
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     file_input = mo.ui.file(
         filetypes=[".json", ".ndjson"],
@@ -125,7 +126,7 @@ def _(mo):
     return (file_input,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(file_input, mo, pl, json):
     mo.stop(not file_input.value, mo.md("ファイルを選択してください"))
 

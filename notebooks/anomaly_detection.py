@@ -24,16 +24,18 @@ __generated_with = "0.18.4"
 app = marimo.App(width="medium")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
+    from datetime import datetime, timedelta, timezone
+
     import altair as alt
     import marimo as mo
     import polars as pl
 
-    return alt, mo, pl
+    return alt, datetime, mo, pl, timedelta, timezone
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     # ⚠️ 異常検知
@@ -42,7 +44,7 @@ def _(mo):
     """)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     file_upload = mo.ui.file(
         filetypes=[".json", ".ndjson"],
@@ -53,10 +55,12 @@ def _(mo):
     return (file_upload,)
 
 
-@app.cell
-def _(file_upload, mo, pl):
+@app.cell(hide_code=True)
+def _(datetime, file_upload, mo, pl, timedelta, timezone):
     import json
-    from datetime import datetime
+
+    # JST (UTC+9) タイムゾーン
+    JST = timezone(timedelta(hours=9))
 
     def parse_audit_log_file(file_info) -> list[dict]:
         """単一ファイルをパースしてレコードリストを返す"""
@@ -72,15 +76,22 @@ def _(file_upload, mo, pl):
             ts = entry.get("@timestamp", entry.get("timestamp"))
             if isinstance(ts, (int, float)):
                 if ts > 1e12:
-                    ts = datetime.fromtimestamp(ts / 1000)
+                    dt_jst = datetime.fromtimestamp(ts / 1000, tz=JST)
                 else:
-                    ts = datetime.fromtimestamp(ts)
+                    dt_jst = datetime.fromtimestamp(ts, tz=JST)
             else:
-                ts = datetime.fromisoformat(str(ts))
+                dt_jst = datetime.fromisoformat(str(ts))
+                if dt_jst.tzinfo is None:
+                    dt_jst = dt_jst.replace(tzinfo=timezone.utc).astimezone(JST)
+                else:
+                    dt_jst = dt_jst.astimezone(JST)
+
+            # JSTの日時をnaive datetimeとして保存
+            date_jst = dt_jst.replace(tzinfo=None)
 
             records.append(
                 {
-                    "timestamp": ts,
+                    "date_jst": date_jst,
                     "action": entry.get("action", "unknown"),
                     "actor": entry.get("actor", "unknown"),
                     "actor_ip": entry.get("actor_ip"),
@@ -95,7 +106,7 @@ def _(file_upload, mo, pl):
     df = None
     if file_upload.value:
         all_records = []
-        file_summaries = []
+        file_summaries = ["\n"]  # markdownレンダリングのために追加
 
         for file_info in file_upload.value:
             records = parse_audit_log_file(file_info)
@@ -116,16 +127,16 @@ def _(file_upload, mo, pl):
     return (df,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(df, mo):
     mo.stop(df is None, mo.md("データを読み込んでください"))
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(df, mo, pl):
     # Get data range
-    min_ts = df.select(pl.col("timestamp").min()).item()
-    max_ts = df.select(pl.col("timestamp").max()).item()
+    min_ts = df.select(pl.col("date_jst").min()).item()
+    max_ts = df.select(pl.col("date_jst").max()).item()
 
     # Date range selector
     date_range = mo.ui.date_range(
@@ -141,20 +152,20 @@ def _(df, mo, pl):
     return (date_range,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(date_range, mo):
     date_range
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(date_range, datetime, df, mo, pl):
-    # Filter by date range
+    # Filter by date range (date_jstはJSTのnaive datetime)
     if date_range.value:
         start_date, end_date = date_range.value
         start_dt = datetime.combine(start_date, datetime.min.time())
         end_dt = datetime.combine(end_date, datetime.max.time())
         filtered_df = df.filter(
-            (pl.col("timestamp") >= start_dt) & (pl.col("timestamp") <= end_dt)
+            (pl.col("date_jst") >= start_dt) & (pl.col("date_jst") <= end_dt)
         )
     else:
         filtered_df = df
@@ -167,7 +178,7 @@ def _(date_range, datetime, df, mo, pl):
     return (filtered_df,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     ## 🚨 危険なアクション
@@ -176,7 +187,7 @@ def _(mo):
     """)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     # Define dangerous actions
     DANGEROUS_ACTIONS = {
@@ -200,16 +211,16 @@ def _():
     return DANGEROUS_ACTIONS, HIGH_RISK_ACTIONS
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(DANGEROUS_ACTIONS, HIGH_RISK_ACTIONS, filtered_df, mo, pl):
     # Detect dangerous actions
     dangerous_events = filtered_df.filter(
         pl.col("action").is_in(list(DANGEROUS_ACTIONS))
-    ).sort("timestamp", descending=True)
+    ).sort("date_jst", descending=True)
 
     high_risk_events = filtered_df.filter(
         pl.col("action").is_in(list(HIGH_RISK_ACTIONS))
-    ).sort("timestamp", descending=True)
+    ).sort("date_jst", descending=True)
 
     dangerous_summary = mo.md(f"""
     ### 検出結果
@@ -234,7 +245,7 @@ def _(DANGEROUS_ACTIONS, HIGH_RISK_ACTIONS, filtered_df, mo, pl):
     return dangerous_events, high_risk_events
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     ## 🌙 時間外アクティビティ
@@ -243,13 +254,13 @@ def _(mo):
     """)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(df, mo, pl):
     # Detect off-hours activity
     off_hours_events = df.filter(
-        (pl.col("timestamp").dt.hour() < 9)
-        | (pl.col("timestamp").dt.hour() >= 18)
-        | (pl.col("timestamp").dt.weekday() >= 5)
+        (pl.col("date_jst").dt.hour() < 9)
+        | (pl.col("date_jst").dt.hour() >= 18)
+        | (pl.col("date_jst").dt.weekday() >= 5)
     )
 
     # Group by actor
@@ -272,7 +283,7 @@ def _(df, mo, pl):
     return off_hours_by_actor, off_hours_events
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(alt, mo, off_hours_by_actor):
     if len(off_hours_by_actor) > 0:
         off_hours_chart = (
@@ -297,7 +308,7 @@ def _(alt, mo, off_hours_by_actor):
     off_hours_result
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     ## 📊 大量操作の検出
@@ -306,7 +317,7 @@ def _(mo):
     """)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     threshold_slider = mo.ui.slider(
         start=10, stop=200, step=10, value=50, label="閾値（1時間あたりのイベント数）"
@@ -315,11 +326,11 @@ def _(mo):
     return (threshold_slider,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(df, mo, pl, threshold_slider):
     # Detect bulk operations
     bulk_ops = (
-        df.with_columns(pl.col("timestamp").dt.truncate("1h").alias("hour_window"))
+        df.with_columns(pl.col("date_jst").dt.truncate("1h").alias("hour_window"))
         .group_by(["actor", "action", "hour_window"])
         .agg(pl.len().alias("count"))
         .filter(pl.col("count") > threshold_slider.value)
@@ -336,7 +347,7 @@ def _(df, mo, pl, threshold_slider):
     return (bulk_ops,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(bulk_ops, mo):
     if len(bulk_ops) > 0:
         bulk_ops_result = mo.ui.table(bulk_ops, pagination=True, page_size=10)
@@ -346,7 +357,7 @@ def _(bulk_ops, mo):
     bulk_ops_result
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     ## 🌐 IPアドレス分析
@@ -355,7 +366,7 @@ def _(mo):
     """)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(df, mo, pl):
     # IP analysis
     if "actor_ip" in df.columns:
@@ -386,7 +397,7 @@ def _(df, mo, pl):
     return (ip_analysis,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(ip_analysis, mo):
     if ip_analysis is not None and len(ip_analysis) > 0:
         ip_table_result = mo.ui.table(
@@ -397,7 +408,7 @@ def _(ip_analysis, mo):
     ip_table_result
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     bulk_ops,
     dangerous_events,
