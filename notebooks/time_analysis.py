@@ -16,6 +16,8 @@ Analyze temporal patterns in the audit log including:
 - Off-hours activity detection
 """
 
+from datetime import UTC
+
 import marimo
 
 
@@ -55,7 +57,10 @@ def _(mo):
 @app.cell
 def _(file_upload, mo, pl):
     import json
-    from datetime import datetime
+    from datetime import datetime, timedelta, timezone
+
+    # JST (UTC+9) タイムゾーン
+    JST = timezone(timedelta(hours=9))
 
     def parse_audit_log_file(file_info) -> list[dict]:
         """単一ファイルをパースしてレコードリストを返す"""
@@ -71,11 +76,15 @@ def _(file_upload, mo, pl):
             ts = entry.get("@timestamp", entry.get("timestamp"))
             if isinstance(ts, (int, float)):
                 if ts > 1e12:
-                    ts = datetime.fromtimestamp(ts / 1000)
+                    ts = datetime.fromtimestamp(ts / 1000, tz=JST)
                 else:
-                    ts = datetime.fromtimestamp(ts)
+                    ts = datetime.fromtimestamp(ts, tz=JST)
             else:
                 ts = datetime.fromisoformat(str(ts))
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=UTC).astimezone(JST)
+                else:
+                    ts = ts.astimezone(JST)
 
             records.append(
                 {
@@ -143,12 +152,16 @@ def _(date_range, mo):
 
 @app.cell
 def _(date_range, datetime, df, mo, pl):
-    # Filter by date range
+    from datetime import timedelta, timezone
+
+    JST = timezone(timedelta(hours=9))
+
+    # Filter by date range (JST)
     if date_range.value:
         start_date, end_date = date_range.value
         # Convert to datetime for filtering
-        start_dt = datetime.combine(start_date, datetime.min.time())
-        end_dt = datetime.combine(end_date, datetime.max.time())
+        start_dt = datetime.combine(start_date, datetime.min.time(), tzinfo=JST)
+        end_dt = datetime.combine(end_date, datetime.max.time(), tzinfo=JST)
         filtered_df = df.filter(
             (pl.col("timestamp") >= start_dt) & (pl.col("timestamp") <= end_dt)
         )

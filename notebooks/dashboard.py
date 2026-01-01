@@ -15,6 +15,8 @@ This is the main entry point for the audit log analysis tool.
 Navigate to different analysis views from here.
 """
 
+from datetime import UTC
+
 import marimo
 
 
@@ -158,9 +160,12 @@ def _(mo):
 @app.cell
 def _(file_upload, mo):
     import json
-    from datetime import datetime
+    from datetime import datetime, timedelta, timezone
 
     import polars as pl
+
+    # JST (UTC+9) タイムゾーン
+    JST = timezone(timedelta(hours=9))
 
     def parse_audit_log_file(file_info) -> list[dict]:
         """単一ファイルをパースしてレコードリストを返す"""
@@ -177,11 +182,15 @@ def _(file_upload, mo):
             ts = entry.get("@timestamp", entry.get("timestamp"))
             if isinstance(ts, (int, float)):
                 if ts > 1e12:
-                    ts = datetime.fromtimestamp(ts / 1000)
+                    ts = datetime.fromtimestamp(ts / 1000, tz=JST)
                 else:
-                    ts = datetime.fromtimestamp(ts)
+                    ts = datetime.fromtimestamp(ts, tz=JST)
             else:
                 ts = datetime.fromisoformat(str(ts))
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=UTC).astimezone(JST)
+                else:
+                    ts = ts.astimezone(JST)
 
             records.append(
                 {
