@@ -102,7 +102,7 @@ def _(datetime, file_upload, mo, pl, timedelta, timezone):
     df = None
     if file_upload.value:
         all_records = []
-        file_summaries = []
+        file_summaries = ["\n"]  # markdownレンダリングのために追加
 
         for file_info in file_upload.value:
             records = parse_audit_log_file(file_info)
@@ -112,13 +112,14 @@ def _(datetime, file_upload, mo, pl, timedelta, timezone):
         df = pl.DataFrame(all_records)
         file_count = len(file_upload.value)
         files_info = "\n".join(file_summaries)
-        mo.md(f"""
+        status = mo.md(f"""
         ✅ **{len(df):,} イベントを読み込みました** ({file_count} ファイル)
 
         {files_info}
         """)
     else:
-        mo.md("⏳ ファイルをアップロードしてください")
+        status = mo.md("⏳ ファイルをアップロードしてください")
+    status
     return (df,)
 
 
@@ -144,11 +145,11 @@ def _(df, mo, pl):
 
     - **全データ**: {min_ts.date()} 〜 {max_ts.date()} ({(max_ts - min_ts).days} 日間)
     """)
-    return date_range, max_ts, min_ts
+    return (date_range,)
 
 
 @app.cell
-def _(date_range, mo):
+def _(date_range):
     date_range
 
 
@@ -193,14 +194,22 @@ def _(alt, filtered_df, granularity, mo, pl):
             .group_by("period")
             .agg(pl.len().alias("count"))
             .sort("period")
+            .with_columns(
+                pl.col("period").dt.strftime("%Y-%m-%d %H:00").alias("period_str")
+            )
         )
+        x_field = "period_str:N"
+        x_sort = alt.SortField("period")
     elif granularity.value == "day":
         time_series = (
             filtered_df.with_columns(pl.col("date_jst").dt.date().alias("period"))
             .group_by("period")
             .agg(pl.len().alias("count"))
             .sort("period")
+            .with_columns(pl.col("period").cast(pl.Utf8).alias("period_str"))
         )
+        x_field = "period_str:N"
+        x_sort = alt.SortField("period")
     elif granularity.value == "week":
         time_series = (
             filtered_df.with_columns(
@@ -209,7 +218,12 @@ def _(alt, filtered_df, granularity, mo, pl):
             .group_by("period")
             .agg(pl.len().alias("count"))
             .sort("period")
+            .with_columns(
+                pl.col("period").dt.strftime("%Y-%m-%d〜").alias("period_str")
+            )
         )
+        x_field = "period_str:N"
+        x_sort = alt.SortField("period")
     else:  # month
         time_series = (
             filtered_df.with_columns(
@@ -226,20 +240,23 @@ def _(alt, filtered_df, granularity, mo, pl):
                         pl.lit("-"),
                         pl.col("month").cast(pl.Utf8).str.zfill(2),
                     ]
-                ).alias("period")
+                ).alias("period"),
+                pl.concat_str(
+                    [pl.col("year"), pl.lit("年"), pl.col("month"), pl.lit("月")]
+                ).alias("period_str"),
             )
         )
+        x_field = "period_str:N"
+        x_sort = alt.SortField("period")
 
     # Create line chart
     ts_chart = (
         alt.Chart(alt.Data(values=time_series.to_dicts()))
         .mark_line(point=True)
         .encode(
-            x=alt.X(
-                "period:T" if granularity.value != "month" else "period:N", title="期間"
-            ),
+            x=alt.X(x_field, title="期間", sort=x_sort),
             y=alt.Y("count:Q", title="イベント数"),
-            tooltip=["period:T", "count:Q"],
+            tooltip=["period_str:N", "count:Q"],
         )
         .properties(
             title=f"アクティビティ推移（{granularity.value}別）", width=800, height=400
@@ -252,7 +269,7 @@ def _(alt, filtered_df, granularity, mo, pl):
 
 @app.cell
 def _(mo, ts_chart):
-    mo.ui.altair_chart(ts_chart)
+    mo.ui.altair_chart(ts_chart).interactive()
 
 
 @app.cell
