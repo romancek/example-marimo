@@ -1010,7 +1010,7 @@ def _run_audit_log_generation(args: argparse.Namespace) -> None:
     output_path = args.output or args.data_dir / "test_audit_log.ndjson"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Generating Audit Logs")
     print("=" * 60)
     print(f"Generating {args.count} events over {args.days} days...")
@@ -1034,7 +1034,7 @@ def _run_members_generation(args: argparse.Namespace) -> None:
     members_output = args.members_output or args.data_dir / "org_members.json"
     members_output.parent.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Generating Org Members")
     print("=" * 60)
 
@@ -1049,7 +1049,7 @@ def _run_members_generation(args: argparse.Namespace) -> None:
 
 def _run_copilot_generation(args: argparse.Namespace) -> None:
     """Generate Copilot seats data."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Generating Copilot Seats")
     print("=" * 60)
 
@@ -1104,7 +1104,7 @@ def main() -> None:
     if generate_copilot:
         _run_copilot_generation(args)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Data generation complete!")
     print("=" * 60)
 
