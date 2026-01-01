@@ -182,24 +182,27 @@ def _(file_upload, mo):
             ts = entry.get("@timestamp", entry.get("timestamp"))
             if isinstance(ts, (int, float)):
                 if ts > 1e12:
-                    ts = datetime.fromtimestamp(ts / 1000, tz=JST)
+                    dt_jst = datetime.fromtimestamp(ts / 1000, tz=JST)
                 else:
-                    ts = datetime.fromtimestamp(ts, tz=JST)
+                    dt_jst = datetime.fromtimestamp(ts, tz=JST)
             else:
-                ts = datetime.fromisoformat(str(ts))
-                if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=UTC).astimezone(JST)
+                dt_jst = datetime.fromisoformat(str(ts))
+                if dt_jst.tzinfo is None:
+                    dt_jst = dt_jst.replace(tzinfo=UTC).astimezone(JST)
                 else:
-                    ts = ts.astimezone(JST)
+                    dt_jst = dt_jst.astimezone(JST)
+
+            # JSTの日時をnaive datetimeとして保存
+            date_jst = dt_jst.replace(tzinfo=None)
 
             records.append(
                 {
-                    "timestamp": ts,
+                    "date_jst": date_jst,
                     "action": entry.get("action", "unknown"),
                     "actor": entry.get("actor", "unknown"),
                     "org": entry.get("org", "unknown"),
                     "repo": entry.get("repo"),
-                    "_source_file": file_info.name,  # ソースファイル追跡用
+                    "_source_file": file_info.name,
                 }
             )
         return records
@@ -231,7 +234,7 @@ def _(file_upload, mo):
 
         **サマリ:**
         - 合計サイズ: {total_size / 1024:.1f} KB
-        - 期間: {df["timestamp"].min()} 〜 {df["timestamp"].max()}
+        - 期間: {df["date_jst"].min()} 〜 {df["date_jst"].max()}
         - ユニークユーザー: {df["actor"].n_unique()} 人
         - ユニークアクション: {df["action"].n_unique()} 種類
         """)

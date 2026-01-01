@@ -16,8 +16,6 @@ Analyze temporal patterns in the audit log including:
 - Off-hours activity detection
 """
 
-from datetime import UTC
-
 import marimo
 
 
@@ -27,11 +25,13 @@ app = marimo.App(width="medium")
 
 @app.cell
 def _():
+    from datetime import datetime, timedelta, timezone
+
     import altair as alt
     import marimo as mo
     import polars as pl
 
-    return alt, mo, pl
+    return alt, datetime, mo, pl, timedelta, timezone
 
 
 @app.cell
@@ -55,9 +55,8 @@ def _(mo):
 
 
 @app.cell
-def _(file_upload, mo, pl):
+def _(datetime, file_upload, mo, pl, timedelta, timezone):
     import json
-    from datetime import datetime, timedelta, timezone
 
     # JST (UTC+9) タイムゾーン
     JST = timezone(timedelta(hours=9))
@@ -76,19 +75,22 @@ def _(file_upload, mo, pl):
             ts = entry.get("@timestamp", entry.get("timestamp"))
             if isinstance(ts, (int, float)):
                 if ts > 1e12:
-                    ts = datetime.fromtimestamp(ts / 1000, tz=JST)
+                    dt_jst = datetime.fromtimestamp(ts / 1000, tz=JST)
                 else:
-                    ts = datetime.fromtimestamp(ts, tz=JST)
+                    dt_jst = datetime.fromtimestamp(ts, tz=JST)
             else:
-                ts = datetime.fromisoformat(str(ts))
-                if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=UTC).astimezone(JST)
+                dt_jst = datetime.fromisoformat(str(ts))
+                if dt_jst.tzinfo is None:
+                    dt_jst = dt_jst.replace(tzinfo=timezone.utc).astimezone(JST)
                 else:
-                    ts = ts.astimezone(JST)
+                    dt_jst = dt_jst.astimezone(JST)
+
+            # JSTの日時をnaive datetimeとして保存 (タイムゾーン情報を削除)
+            date_jst = dt_jst.replace(tzinfo=None)
 
             records.append(
                 {
-                    "timestamp": ts,
+                    "date_jst": date_jst,
                     "action": entry.get("action", "unknown"),
                     "actor": entry.get("actor", "unknown"),
                     "_source_file": file_info.name,
@@ -128,8 +130,8 @@ def _(df, mo):
 @app.cell
 def _(df, mo, pl):
     # Get data range
-    min_ts = df.select(pl.col("timestamp").min()).item()
-    max_ts = df.select(pl.col("timestamp").max()).item()
+    min_ts = df.select(pl.col("date_jst").min()).item()
+    max_ts = df.select(pl.col("date_jst").max()).item()
 
     # Date range selector
     date_range = mo.ui.date_range(
@@ -152,18 +154,13 @@ def _(date_range, mo):
 
 @app.cell
 def _(date_range, datetime, df, mo, pl):
-    from datetime import timedelta, timezone
-
-    JST = timezone(timedelta(hours=9))
-
-    # Filter by date range (JST)
+    # Filter by date range (date_jstはJSTのnaive datetime)
     if date_range.value:
         start_date, end_date = date_range.value
-        # Convert to datetime for filtering
-        start_dt = datetime.combine(start_date, datetime.min.time(), tzinfo=JST)
-        end_dt = datetime.combine(end_date, datetime.max.time(), tzinfo=JST)
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        end_dt = datetime.combine(end_date, datetime.max.time())
         filtered_df = df.filter(
-            (pl.col("timestamp") >= start_dt) & (pl.col("timestamp") <= end_dt)
+            (pl.col("date_jst") >= start_dt) & (pl.col("date_jst") <= end_dt)
         )
     else:
         filtered_df = df
@@ -191,7 +188,7 @@ def _(alt, filtered_df, granularity, mo, pl):
     if granularity.value == "hour":
         time_series = (
             filtered_df.with_columns(
-                pl.col("timestamp").dt.truncate("1h").alias("period")
+                pl.col("date_jst").dt.truncate("1h").alias("period")
             )
             .group_by("period")
             .agg(pl.len().alias("count"))
@@ -199,7 +196,7 @@ def _(alt, filtered_df, granularity, mo, pl):
         )
     elif granularity.value == "day":
         time_series = (
-            filtered_df.with_columns(pl.col("timestamp").dt.date().alias("period"))
+            filtered_df.with_columns(pl.col("date_jst").dt.date().alias("period"))
             .group_by("period")
             .agg(pl.len().alias("count"))
             .sort("period")
@@ -207,7 +204,7 @@ def _(alt, filtered_df, granularity, mo, pl):
     elif granularity.value == "week":
         time_series = (
             filtered_df.with_columns(
-                pl.col("timestamp").dt.truncate("1w").alias("period")
+                pl.col("date_jst").dt.truncate("1w").alias("period")
             )
             .group_by("period")
             .agg(pl.len().alias("count"))
@@ -216,8 +213,8 @@ def _(alt, filtered_df, granularity, mo, pl):
     else:  # month
         time_series = (
             filtered_df.with_columns(
-                pl.col("timestamp").dt.month().alias("month"),
-                pl.col("timestamp").dt.year().alias("year"),
+                pl.col("date_jst").dt.month().alias("month"),
+                pl.col("date_jst").dt.year().alias("year"),
             )
             .group_by(["year", "month"])
             .agg(pl.len().alias("count"))
@@ -269,7 +266,7 @@ def _(mo):
 def _(alt, filtered_df, mo, pl):
     # Hourly distribution
     hourly_dist = (
-        filtered_df.with_columns(pl.col("timestamp").dt.hour().alias("hour"))
+        filtered_df.with_columns(pl.col("date_jst").dt.hour().alias("hour"))
         .group_by("hour")
         .agg(pl.len().alias("count"))
         .sort("hour")
@@ -308,7 +305,7 @@ def _(alt, filtered_df, mo, pl):
     # Weekday distribution
     weekday_names = ["月", "火", "水", "木", "金", "土", "日"]
     weekday_dist = (
-        filtered_df.with_columns(pl.col("timestamp").dt.weekday().alias("weekday"))
+        filtered_df.with_columns(pl.col("date_jst").dt.weekday().alias("weekday"))
         .group_by("weekday")
         .agg(pl.len().alias("count"))
         .sort("weekday")
@@ -349,9 +346,9 @@ def _():
 def _(filtered_df, mo, pl):
     # Off-hours analysis
     off_hours = filtered_df.filter(
-        (pl.col("timestamp").dt.hour() < 9)
-        | (pl.col("timestamp").dt.hour() >= 18)
-        | (pl.col("timestamp").dt.weekday() >= 5)
+        (pl.col("date_jst").dt.hour() < 9)
+        | (pl.col("date_jst").dt.hour() >= 18)
+        | (pl.col("date_jst").dt.weekday() >= 5)
     )
 
     off_hours_pct = len(off_hours) / max(len(filtered_df), 1) * 100

@@ -17,8 +17,6 @@ Detect suspicious patterns in the audit log:
 - Unusual IP addresses
 """
 
-from datetime import UTC
-
 import marimo
 
 
@@ -28,11 +26,13 @@ app = marimo.App(width="medium")
 
 @app.cell
 def _():
+    from datetime import datetime, timedelta, timezone
+
     import altair as alt
     import marimo as mo
     import polars as pl
 
-    return alt, mo, pl
+    return alt, datetime, mo, pl, timedelta, timezone
 
 
 @app.cell
@@ -56,9 +56,8 @@ def _(mo):
 
 
 @app.cell
-def _(file_upload, mo, pl):
+def _(datetime, file_upload, mo, pl, timedelta, timezone):
     import json
-    from datetime import datetime, timedelta, timezone
 
     # JST (UTC+9) タイムゾーン
     JST = timezone(timedelta(hours=9))
@@ -77,19 +76,22 @@ def _(file_upload, mo, pl):
             ts = entry.get("@timestamp", entry.get("timestamp"))
             if isinstance(ts, (int, float)):
                 if ts > 1e12:
-                    ts = datetime.fromtimestamp(ts / 1000, tz=JST)
+                    dt_jst = datetime.fromtimestamp(ts / 1000, tz=JST)
                 else:
-                    ts = datetime.fromtimestamp(ts, tz=JST)
+                    dt_jst = datetime.fromtimestamp(ts, tz=JST)
             else:
-                ts = datetime.fromisoformat(str(ts))
-                if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=UTC).astimezone(JST)
+                dt_jst = datetime.fromisoformat(str(ts))
+                if dt_jst.tzinfo is None:
+                    dt_jst = dt_jst.replace(tzinfo=timezone.utc).astimezone(JST)
                 else:
-                    ts = ts.astimezone(JST)
+                    dt_jst = dt_jst.astimezone(JST)
+
+            # JSTの日時をnaive datetimeとして保存
+            date_jst = dt_jst.replace(tzinfo=None)
 
             records.append(
                 {
-                    "timestamp": ts,
+                    "date_jst": date_jst,
                     "action": entry.get("action", "unknown"),
                     "actor": entry.get("actor", "unknown"),
                     "actor_ip": entry.get("actor_ip"),
@@ -133,8 +135,8 @@ def _(df, mo):
 @app.cell
 def _(df, mo, pl):
     # Get data range
-    min_ts = df.select(pl.col("timestamp").min()).item()
-    max_ts = df.select(pl.col("timestamp").max()).item()
+    min_ts = df.select(pl.col("date_jst").min()).item()
+    max_ts = df.select(pl.col("date_jst").max()).item()
 
     # Date range selector
     date_range = mo.ui.date_range(
@@ -157,17 +159,13 @@ def _(date_range, mo):
 
 @app.cell
 def _(date_range, datetime, df, mo, pl):
-    from datetime import timedelta, timezone
-
-    JST = timezone(timedelta(hours=9))
-
-    # Filter by date range (JST)
+    # Filter by date range (date_jstはJSTのnaive datetime)
     if date_range.value:
         start_date, end_date = date_range.value
-        start_dt = datetime.combine(start_date, datetime.min.time(), tzinfo=JST)
-        end_dt = datetime.combine(end_date, datetime.max.time(), tzinfo=JST)
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        end_dt = datetime.combine(end_date, datetime.max.time())
         filtered_df = df.filter(
-            (pl.col("timestamp") >= start_dt) & (pl.col("timestamp") <= end_dt)
+            (pl.col("date_jst") >= start_dt) & (pl.col("date_jst") <= end_dt)
         )
     else:
         filtered_df = df
@@ -218,11 +216,11 @@ def _(DANGEROUS_ACTIONS, HIGH_RISK_ACTIONS, filtered_df, mo, pl):
     # Detect dangerous actions
     dangerous_events = filtered_df.filter(
         pl.col("action").is_in(list(DANGEROUS_ACTIONS))
-    ).sort("timestamp", descending=True)
+    ).sort("date_jst", descending=True)
 
     high_risk_events = filtered_df.filter(
         pl.col("action").is_in(list(HIGH_RISK_ACTIONS))
-    ).sort("timestamp", descending=True)
+    ).sort("date_jst", descending=True)
 
     dangerous_summary = mo.md(f"""
     ### 検出結果
@@ -260,9 +258,9 @@ def _(mo):
 def _(df, mo, pl):
     # Detect off-hours activity
     off_hours_events = df.filter(
-        (pl.col("timestamp").dt.hour() < 9)
-        | (pl.col("timestamp").dt.hour() >= 18)
-        | (pl.col("timestamp").dt.weekday() >= 5)
+        (pl.col("date_jst").dt.hour() < 9)
+        | (pl.col("date_jst").dt.hour() >= 18)
+        | (pl.col("date_jst").dt.weekday() >= 5)
     )
 
     # Group by actor
@@ -332,7 +330,7 @@ def _(mo):
 def _(df, mo, pl, threshold_slider):
     # Detect bulk operations
     bulk_ops = (
-        df.with_columns(pl.col("timestamp").dt.truncate("1h").alias("hour_window"))
+        df.with_columns(pl.col("date_jst").dt.truncate("1h").alias("hour_window"))
         .group_by(["actor", "action", "hour_window"])
         .agg(pl.len().alias("count"))
         .filter(pl.col("count") > threshold_slider.value)
