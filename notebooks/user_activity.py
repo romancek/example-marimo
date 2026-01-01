@@ -24,7 +24,7 @@ __generated_with = "0.18.4"
 app = marimo.App(width="medium")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     from datetime import datetime, timedelta, timezone
 
@@ -35,7 +35,7 @@ def _():
     return alt, datetime, mo, pl, timedelta, timezone
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     # 👥 ユーザー別アクティビティ分析
@@ -44,7 +44,7 @@ def _(mo):
     """)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     # File upload widget
     file_upload = mo.ui.file(
@@ -56,7 +56,7 @@ def _(mo):
     return (file_upload,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(datetime, file_upload, mo, pl, timedelta, timezone):
     import json
 
@@ -106,7 +106,7 @@ def _(datetime, file_upload, mo, pl, timedelta, timezone):
     df = None
     if file_upload.value:
         all_records = []
-        file_summaries = []
+        file_summaries = ["\n"]  # markdownレンダリングのために追加
 
         for file_info in file_upload.value:
             records = parse_audit_log_file(file_info)
@@ -116,22 +116,22 @@ def _(datetime, file_upload, mo, pl, timedelta, timezone):
         df = pl.DataFrame(all_records)
         file_count = len(file_upload.value)
         files_info = "\n".join(file_summaries)
-        mo.md(f"""
+        status = mo.md(f"""
         ✅ **{len(df):,} イベントを読み込みました** ({file_count} ファイル)
 
         {files_info}
         """)
     else:
-        mo.md("⏳ ファイルをアップロードしてください")
-    return (df,)
+        status = mo.md("⏳ ファイルをアップロードしてください")
+    status
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(df, mo):
     mo.stop(df is None, mo.md("データを読み込んでください"))
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(df, mo, pl):
     # Get data range
     min_ts = df.select(pl.col("date_jst").min()).item()
@@ -151,12 +151,12 @@ def _(df, mo, pl):
     return (date_range,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(date_range, mo):
     date_range
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(date_range, datetime, df, mo, pl):
     # Filter by date range (date_jstはJSTのnaive datetime)
     if date_range.value:
@@ -186,7 +186,7 @@ def _(date_range, datetime, df, mo, pl):
     return filtered_df, user_counts
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     # Controls
     top_n_slider = mo.ui.slider(
@@ -197,7 +197,7 @@ def _(mo):
     return exclude_bots, top_n_slider
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(alt, filtered_df, exclude_bots, mo, pl, top_n_slider):
     # Filter bots if needed
     analysis_df = filtered_df
@@ -231,12 +231,12 @@ def _(alt, filtered_df, exclude_bots, mo, pl, top_n_slider):
     return chart, filtered_df, top_users
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(chart, mo):
     mo.ui.altair_chart(chart)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(filtered_df, mo, pl):
     # Action breakdown per user
     action_breakdown = (
@@ -249,7 +249,7 @@ def _(filtered_df, mo, pl):
     return (action_breakdown,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo, top_users):
     # User selector
     user_selector = mo.ui.dropdown(
@@ -259,7 +259,7 @@ def _(mo, top_users):
     return (user_selector,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(action_breakdown, alt, mo, pl, user_selector):
     print(user_selector.value)
     if user_selector.value:
@@ -285,7 +285,7 @@ def _(action_breakdown, alt, mo, pl, user_selector):
     return (action_chart,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(action_chart, mo):
     mo.ui.altair_chart(action_chart)
 

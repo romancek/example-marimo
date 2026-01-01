@@ -23,7 +23,7 @@ __generated_with = "0.18.4"
 app = marimo.App(width="medium")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     from datetime import datetime, timedelta, timezone
 
@@ -34,7 +34,7 @@ def _():
     return alt, datetime, mo, pl, timedelta, timezone
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     # 📈 時系列分析
@@ -43,7 +43,7 @@ def _(mo):
     """)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     file_upload = mo.ui.file(
         filetypes=[".json", ".ndjson"],
@@ -54,7 +54,7 @@ def _(mo):
     return (file_upload,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(datetime, file_upload, mo, pl, timedelta, timezone):
     import json
 
@@ -123,12 +123,12 @@ def _(datetime, file_upload, mo, pl, timedelta, timezone):
     return (df,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(df, mo):
     mo.stop(df is None, mo.md("データを読み込んでください"))
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(df, mo, pl):
     # Get data range
     min_ts = df.select(pl.col("date_jst").min()).item()
@@ -148,12 +148,12 @@ def _(df, mo, pl):
     return (date_range,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(date_range):
     date_range
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(date_range, datetime, df, mo, pl):
     # Filter by date range (date_jstはJSTのnaive datetime)
     if date_range.value:
@@ -174,7 +174,7 @@ def _(date_range, datetime, df, mo, pl):
     return (filtered_df,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     granularity = mo.ui.dropdown(
         options=["hour", "day", "week", "month"], value="day", label="集計単位"
@@ -183,7 +183,7 @@ def _(mo):
     return (granularity,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(alt, filtered_df, granularity, mo, pl):
     # Aggregate by selected granularity
     if granularity.value == "hour":
@@ -267,19 +267,19 @@ def _(alt, filtered_df, granularity, mo, pl):
     return (ts_chart,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo, ts_chart):
     mo.ui.altair_chart(ts_chart).interactive()
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md("""
     ## ⏰ 時間帯別分布
     """)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(alt, filtered_df, mo, pl):
     # Hourly distribution
     hourly_dist = (
@@ -310,14 +310,14 @@ def _(alt, filtered_df, mo, pl):
     mo.ui.altair_chart(hourly_chart)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md("""
     ## 📅 曜日別分布
     """)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(alt, filtered_df, mo, pl):
     # Weekday distribution
     weekday_names = ["月", "火", "水", "木", "金", "土", "日"]
@@ -354,12 +354,12 @@ def _(alt, filtered_df, mo, pl):
     mo.ui.altair_chart(weekday_chart)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(filtered_df, mo, pl):
     # Off-hours analysis
     off_hours = filtered_df.filter(

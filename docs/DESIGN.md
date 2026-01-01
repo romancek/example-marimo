@@ -58,6 +58,20 @@ ______________________________________________________________________
 1. **スタンドアロン**: 各ノートブックは独立して動作
 1. **PEP 723準拠**: インライン依存関係でサンドボックス環境を構築（`marimo`/`polars`/`altair`に加え、`pandas`/`pyarrow`も定義）
 1. **シンプル**: 外部パッケージへの依存なし（notebooks/のみ）
+1. **コード非表示**: すべてのセルに`hide_code=True`を適用
+
+### 2.3 コード非表示の目的
+
+すべてのノートブックセルで`@app.cell(hide_code=True)`を使用し、デフォルトでコードを非表示にしています。
+
+**目的:**
+
+1. **分析への集中**: コードではなく、データと可視化結果に集中できる
+1. **クリーンなUI**: GitHub Pagesで公開した際、ダッシュボードとして洗練された見た目を提供
+1. **非技術者への配慮**: コードを見せないことで、ビジネスユーザーや監査担当者も抵抗なく使用可能
+1. **情報の整理**: 必要な情報（グラフ、テーブル、サマリー）のみを表示し、ノイズを削減
+
+**注意**: コードは非表示になっているだけで削除されていません。marimoのUIから「Show code」で確認・編集が可能です。
 
 ______________________________________________________________________
 
@@ -84,7 +98,7 @@ __generated_with = "0.18.0"
 app = marimo.App(width="medium")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     import marimo as mo
     import polars as pl
@@ -94,7 +108,7 @@ def _():
     return mo, pl, alt, json, datetime
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     # ファイルアップロード
     file_input = mo.ui.file(
@@ -106,7 +120,7 @@ def _(mo):
     return (file_input,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(file_input, pl, json):
     # データ読み込み（複数ファイル対応）
     mo.stop(not file_input.value, mo.md("ファイルを選択してください"))

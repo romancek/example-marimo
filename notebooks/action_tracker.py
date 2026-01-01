@@ -23,7 +23,7 @@ __generated_with = "0.18.4"
 app = marimo.App(width="medium")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     from datetime import datetime, timedelta, timezone
 
@@ -34,7 +34,7 @@ def _():
     return alt, datetime, mo, pl, timedelta, timezone
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     # 🔎 アクション追跡
@@ -43,7 +43,7 @@ def _(mo):
     """)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     file_upload = mo.ui.file(
         filetypes=[".json", ".ndjson"],
@@ -54,7 +54,7 @@ def _(mo):
     return (file_upload,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(datetime, file_upload, mo, pl, timedelta, timezone):
     import json
 
@@ -106,7 +106,7 @@ def _(datetime, file_upload, mo, pl, timedelta, timezone):
     df = None
     if file_upload.value:
         all_records = []
-        file_summaries = []
+        file_summaries = ["\n"]  # markdownレンダリングのために追加
 
         for file_info in file_upload.value:
             records = parse_audit_log_file(file_info)
@@ -116,22 +116,23 @@ def _(datetime, file_upload, mo, pl, timedelta, timezone):
         df = pl.DataFrame(all_records)
         file_count = len(file_upload.value)
         files_info = "\n".join(file_summaries)
-        mo.md(f"""
+        status = mo.md(f"""
         ✅ **{len(df):,} イベントを読み込みました** ({file_count} ファイル)
 
         {files_info}
         """)
     else:
-        mo.md("⏳ ファイルをアップロードしてください")
+        status = mo.md("⏳ ファイルをアップロードしてください")
+    status
     return (df,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(df, mo):
     mo.stop(df is None, mo.md("データを読み込んでください"))
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(df, mo, pl):
     # Get data range
     min_ts = df.select(pl.col("date_jst").min()).item()
@@ -151,12 +152,12 @@ def _(df, mo, pl):
     return (date_range,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(date_range, mo):
     date_range
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(date_range, datetime, df, mo, pl):
     # Filter by date range (date_jstはJSTのnaive datetime)
     if date_range.value:
@@ -183,7 +184,7 @@ def _(date_range, datetime, df, mo, pl):
     return base_df, unique_actions
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo, unique_actions):
     # Action filter
     action_filter = mo.ui.multiselect(
@@ -193,7 +194,7 @@ def _(mo, unique_actions):
     return (action_filter,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     # Text search
     search_text = mo.ui.text(
@@ -204,7 +205,7 @@ def _(mo):
     return (search_text,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(action_filter, base_df, mo, pl, search_text):
     # Apply filters
     filtered_df = base_df
@@ -236,7 +237,7 @@ def _(action_filter, base_df, mo, pl, search_text):
     return action_summary, filtered_df
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(action_summary, alt, mo):
     # Action distribution chart
     if len(action_summary) > 0:
@@ -260,14 +261,14 @@ def _(action_summary, alt, mo):
     return (action_chart,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md("""
     ## 📝 イベント詳細
     """)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(filtered_df, mo):
     # Show filtered data table
     if len(filtered_df) > 0:
@@ -282,14 +283,14 @@ def _(filtered_df, mo):
     table_result
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md("""
     ## 📦 リポジトリ別集計
     """)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(alt, filtered_df, mo, pl):
     # Repository summary
     repo_summary = (

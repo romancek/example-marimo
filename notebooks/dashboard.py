@@ -9,10 +9,11 @@
 # ]
 # ///
 """
-GitHub Organization Audit Log Analyzer - Index Page
+Dashboard - Navigation Page
 
-This is the main entry point for the audit log analysis tool.
-Navigate to different analysis views from here.
+This is the main dashboard page for navigating to different analysis notebooks.
+You can also upload audit log files here to see a summary.
+Any custom analysis can be done using the loaded DataFrame.
 """
 
 from datetime import UTC
@@ -24,14 +25,14 @@ __generated_with = "0.18.4"
 app = marimo.App(width="medium")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     import marimo as mo
 
     return (mo,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     # 🔍 GitHub Organization Audit Log Analyzer
@@ -44,7 +45,7 @@ def _(mo):
     """)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     import sys
 
@@ -134,7 +135,7 @@ def _(mo):
     nav_cards
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     ---
@@ -146,7 +147,7 @@ def _(mo):
     """)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     file_upload = mo.ui.file(
         filetypes=[".json", ".ndjson"],
@@ -157,7 +158,7 @@ def _(mo):
     return (file_upload,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(file_upload, mo):
     import json
     from datetime import datetime, timedelta, timezone
@@ -211,7 +212,7 @@ def _(file_upload, mo):
     df = None
     if file_upload.value:
         all_records = []
-        file_summaries = []
+        file_summaries = ["\n"]  # markdownレンダリングのために追加
         total_size = 0
 
         for file_info in file_upload.value:
@@ -242,9 +243,10 @@ def _(file_upload, mo):
         df = None
         status = mo.md("⏳ ファイルを選択してください...")
     status
+    return datetime, df, pl
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     # 📊カスタム分析🧐
@@ -252,7 +254,25 @@ def _(mo):
     """)
 
 
-@app.cell
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## 期間でフィルタ
+
+    datetimeで指定
+    """)
+
+
+@app.cell(hide_code=True)
+def _(datetime, df, pl):
+    filtered_df = df.filter(
+        (pl.col("date_jst") >= datetime(2025, 1, 1, 0, 0, 0))
+        & (pl.col("date_jst") <= datetime(2025, 1, 3, 0, 0, 0))
+    )
+    filtered_df
+
+
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     ---
