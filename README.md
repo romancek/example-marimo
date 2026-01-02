@@ -114,6 +114,7 @@ uv run pre-commit install
 
 # 4. コード品質チェック
 uv run pre-commit run --all-files
+```
 
 ### MarkdownのLint（markdownlint-cli）
 
@@ -148,6 +149,32 @@ uv run ruff format .
 uv run ruff check . --fix
 ```
 
+### テストデータの生成
+
+`scripts/generate_test_data.py` を使用して、分析用のテストデータを生成できます。
+
+```bash
+# 全データタイプを生成（休眠ユーザー分析向け推奨）
+uv run python scripts/generate_test_data.py --all
+
+# 監査ログのみ生成
+uv run python scripts/generate_test_data.py -n 10000 -o data/test.ndjson
+
+# Org Membersリストを生成
+uv run python scripts/generate_test_data.py --generate-members --members-count 50
+
+# Copilot Seatsデータを生成（2組織分）
+uv run python scripts/generate_test_data.py --generate-copilot --copilot-orgs acme-corp contoso
+```
+
+生成可能なデータ：
+
+| データタイプ | 説明 | 出力ファイル |
+| -------------- | ---------------------------------- | ----------------------- |
+| Audit Log | 組織の活動ログ（各種パターン含む） | `data/test.ndjson` |
+| Org Members | 組織メンバーリスト | `data/org_members.json` |
+| Copilot Seats | Copilotシート割り当てデータ | `data/copilot_seats_*.json` |
+
 ## 📁 ディレクトリ構造
 
 ```
@@ -159,6 +186,9 @@ example-marimo/
 │   ├── action_tracker.py      # アクション検索・追跡
 │   ├── anomaly_detection.py   # 異常検知・アラート
 │   └── dormant_users.py       # 休眠ユーザー分析
+│
+├── scripts/                    # ユーティリティスクリプト
+│   └── generate_test_data.py  # テストデータ生成
 │
 ├── data/                       # データファイル（.gitignore対象）
 │
@@ -218,7 +248,7 @@ curl -L \
 | ノートブック   | marimo     | ≥0.18.0    |
 | DataFrame      | Polars     | ≥1.18.0    |
 | 可視化         | Altair     | ≥5.5.0     |
-| パッケージ管理 | uv         | latest     |
+| パッケージ管理 | uv         | ≥0.9.18    |
 | リンター       | Ruff       | ≥0.8.0     |
 
 ## 🔒 セキュリティに関する注意
