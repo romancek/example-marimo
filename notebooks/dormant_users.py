@@ -24,9 +24,6 @@ __generated_with = "0.18.4"
 app = marimo.App(width="medium")
 
 
-# ============================================================
-# Cell 1: Imports
-# ============================================================
 @app.cell(hide_code=True)
 def _():
     import json
@@ -38,13 +35,9 @@ def _():
 
     # JST (UTC+9) タイムゾーン
     JST = timezone(timedelta(hours=9))
-
     return JST, alt, datetime, json, mo, pl, timedelta, timezone
 
 
-# ============================================================
-# Cell 2: Title
-# ============================================================
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -55,17 +48,20 @@ def _(mo):
     **分析対象:**
     - 監査ログ上のアクティビティ
     - GitHub Copilot の利用状況
+    - アクティビティに基づく休眠ステータス（完全休眠/低活動/要観察）
+    - 退職者（監査ログに存在するがメンバー外）の検出
+    - 監査ログ上のbot/human内訳（actor数/イベント数）
 
     **データソース:**
     1. **監査ログ** (JSON/NDJSON) - GitHubのアクティビティログ
     2. **Org Members** (JSON) - 現在のOrganizationメンバーリスト
     3. **Copilot Seats** (JSON) - Copilotシート割り当てデータ（オプション）
+
+    > 💡 このノートブックは、ユーザー名パターンによるカテゴリ分類には依存せず、
+    > 監査ログ上のアクティビティ（イベント数など）に基づいて休眠状態を判定します。
     """)
 
 
-# ============================================================
-# Cell 3: File Uploads
-# ============================================================
 @app.cell(hide_code=True)
 def _(mo):
     audit_log_upload = mo.ui.file(
@@ -100,9 +96,6 @@ def _(mo):
     return audit_log_upload, copilot_upload, members_upload
 
 
-# ============================================================
-# Cell 4: Parse Audit Logs
-# ============================================================
 @app.cell(hide_code=True)
 def _(JST, audit_log_upload, datetime, json, mo, pl, timezone):
     def parse_audit_log_file(file_info) -> list[dict]:
@@ -162,18 +155,15 @@ def _(JST, audit_log_upload, datetime, json, mo, pl, timezone):
         audit_df = pl.DataFrame(_all_records)
         _files_info = "\n".join(_file_summaries)
         audit_status = mo.md(f"""
-✅ **監査ログ: {len(audit_df):,} イベント** ({len(audit_log_upload.value)} ファイル)
+    ✅ **監査ログ: {len(audit_df):,} イベント** ({len(audit_log_upload.value)} ファイル)
 
-{_files_info}
+    {_files_info}
         """)
 
     audit_status
-    return audit_df, audit_status, parse_audit_log_file
+    return (audit_df,)
 
 
-# ============================================================
-# Cell 5: Parse Org Members
-# ============================================================
 @app.cell(hide_code=True)
 def _(json, members_upload, mo, pl):
     members_df = None
@@ -197,27 +187,30 @@ def _(json, members_upload, mo, pl):
 
         members_df = pl.DataFrame(_member_records)
         members_status = mo.md(f"""
-✅ **Org Members: {len(members_df):,} メンバー**
+    ✅ **Org Members: {len(members_df):,} メンバー**
 
-- ファイル: `{members_upload.value[0].name}`
+    - ファイル: `{members_upload.value[0].name}`
         """)
 
     members_status
-    return members_df, members_status
+    return (members_df,)
 
 
-# ============================================================
-# Cell 6: Parse Copilot Seats
-# ============================================================
 @app.cell(hide_code=True)
-def _(JST, copilot_upload, datetime, json, mo, pl, timezone):
+def _(JST, copilot_upload, datetime, json, mo, pl):
     def parse_copilot_timestamp(ts_str: str | None) -> datetime | None:
-        """ISO形式のタイムスタンプをJSTのnaive datetimeに変換"""
+        """ISO形式のタイムスタンプまたは日付文字列をJSTのnaive datetimeに変換"""
         if not ts_str:
             return None
-        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-        dt_jst = dt.astimezone(JST)
-        return dt_jst.replace(tzinfo=None)
+        # Zをタイムゾーン形式に変換
+        ts_str = ts_str.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(ts_str)
+        # タイムゾーン情報がある場合はJSTに変換
+        if dt.tzinfo is not None:
+            dt_jst = dt.astimezone(JST)
+            return dt_jst.replace(tzinfo=None)
+        # 日付のみの場合はそのまま返す (例: "2026-01-16")
+        return dt
 
     copilot_df = None
     copilot_status = mo.md("ℹ️ Copilot Seatsファイルは未アップロード（オプション）")
@@ -244,8 +237,8 @@ def _(JST, copilot_upload, datetime, json, mo, pl, timezone):
                             _seat.get("last_activity_at")
                         ),
                         "last_activity_editor": _seat.get("last_activity_editor"),
-                        "pending_cancellation_date": _seat.get(
-                            "pending_cancellation_date"
+                        "pending_cancellation_date": parse_copilot_timestamp(
+                            _seat.get("pending_cancellation_date")
                         ),
                     }
                 )
@@ -262,7 +255,20 @@ def _(JST, copilot_upload, datetime, json, mo, pl, timezone):
             )
 
         if _all_seats:
-            copilot_df = pl.DataFrame(_all_seats)
+            # 明示的にスキーマを指定してDataFrameを作成
+            # (Polarsのスキーマ推論でNoneと datetime の混在による型不一致を防ぐ)
+            copilot_df = pl.DataFrame(
+                _all_seats,
+                schema={
+                    "login": pl.Utf8,
+                    "user_id": pl.Int64,
+                    "org_name": pl.Utf8,
+                    "created_at": pl.Datetime,
+                    "last_activity_at": pl.Datetime,
+                    "last_activity_editor": pl.Utf8,
+                    "pending_cancellation_date": pl.Datetime,
+                },
+            )
 
             # 同一ユーザーが複数Orgにいる場合、最新のlast_activity_atを使用
             copilot_df = (
@@ -273,34 +279,28 @@ def _(JST, copilot_upload, datetime, json, mo, pl, timezone):
 
             _orgs_info = "\n".join(_org_summaries)
             copilot_status = mo.md(f"""
-✅ **Copilot Seats: {len(copilot_df):,} ユーザー**
+    ✅ **Copilot Seats: {len(copilot_df):,} ユーザー**
 
-{_orgs_info}
+    {_orgs_info}
             """)
 
     copilot_status
-    return copilot_df, copilot_status, parse_copilot_timestamp
+    return (copilot_df,)
 
 
-# ============================================================
-# Cell 7: Validation Check
-# ============================================================
 @app.cell(hide_code=True)
 def _(audit_df, members_df, mo):
     mo.stop(
         audit_df is None or members_df is None,
         mo.md("""
-⚠️ **必須ファイルをアップロードしてください**
+    ⚠️ **必須ファイルをアップロードしてください**
 
-- 監査ログファイル（JSON/NDJSON）
-- Org Membersファイル（JSON）
+    - 監査ログファイル（JSON/NDJSON）
+    - Org Membersファイル（JSON）
         """),
     )
 
 
-# ============================================================
-# Cell 8: Analysis Parameters
-# ============================================================
 @app.cell(hide_code=True)
 def _(mo):
     period_slider = mo.ui.slider(
@@ -314,7 +314,7 @@ def _(mo):
 
     threshold_slider = mo.ui.slider(
         start=0,
-        stop=50,
+        stop=200,
         value=5,
         step=1,
         label="休眠判定の閾値（イベント数以下）",
@@ -331,11 +331,16 @@ def _(mo):
     return period_slider, threshold_slider
 
 
-# ============================================================
-# Cell 9: Calculate User Activity
-# ============================================================
 @app.cell(hide_code=True)
-def _(audit_df, copilot_df, datetime, members_df, period_slider, pl, timedelta):
+def _(
+    audit_df,
+    copilot_df,
+    datetime,
+    members_df,
+    period_slider,
+    pl,
+    timedelta,
+):
     # 分析期間の計算
     now = datetime.now()
     period_months = period_slider.value
@@ -343,6 +348,15 @@ def _(audit_df, copilot_df, datetime, members_df, period_slider, pl, timedelta):
 
     # 現在のOrg Membersのみをフィルタリング
     member_logins = members_df["login"].to_list()
+    member_logins_set = set(member_logins)
+
+    # 監査ログにいるがメンバーリストにいないユーザー (退職者) を検出
+    audit_actors = set(audit_df["actor"].unique().to_list())
+    former_users_detected = audit_actors - member_logins_set
+    # ボットを除外
+    former_users_detected = {
+        u for u in former_users_detected if not u.endswith("[bot]")
+    }
 
     # Filter audit logs for current org members within the analysis period
     audit_period_df = audit_df.filter(
@@ -386,7 +400,7 @@ def _(audit_df, copilot_df, datetime, members_df, period_slider, pl, timedelta):
         user_summary = user_summary.with_columns(
             pl.lit(None).cast(pl.Datetime).alias("copilot_last_activity"),
             pl.lit(None).cast(pl.Utf8).alias("last_activity_editor"),
-            pl.lit(None).cast(pl.Utf8).alias("pending_cancellation_date"),
+            pl.lit(None).cast(pl.Datetime).alias("pending_cancellation_date"),
         )
 
     # Use most recent activity between audit log and Copilot
@@ -405,20 +419,22 @@ def _(audit_df, copilot_df, datetime, members_df, period_slider, pl, timedelta):
     )
     return (
         audit_period_df,
-        member_logins,
-        now,
+        former_users_detected,
         period_months,
         period_start,
-        user_activity,
         user_summary,
     )
 
 
-# ============================================================
-# Cell 10: Identify Dormant Users
-# ============================================================
 @app.cell(hide_code=True)
-def _(period_months, pl, threshold_slider, user_summary):
+def _(
+    audit_df,
+    period_months,
+    period_start,
+    pl,
+    threshold_slider,
+    user_summary,
+):
     threshold = threshold_slider.value
 
     # 休眠ユーザーの判定
@@ -445,6 +461,23 @@ def _(period_months, pl, threshold_slider, user_summary):
     low_activity = dormant_users.filter(pl.col("status") == "低活動").height
     watch_needed = dormant_users.filter(pl.col("status") == "要観察").height
 
+    audit_period_all_df = audit_df.filter(pl.col("date_jst") >= period_start)
+    bot_actor_count = (
+        audit_period_all_df.filter(pl.col("actor").str.ends_with("[bot]"))
+        .select(pl.col("actor").n_unique())
+        .to_series()[0]
+    )
+    total_actor_count = audit_period_all_df.select(
+        pl.col("actor").n_unique()
+    ).to_series()[0]
+    human_actor_count = total_actor_count - bot_actor_count
+
+    bot_event_count = audit_period_all_df.filter(
+        pl.col("actor").str.ends_with("[bot]")
+    ).height
+    total_event_count = audit_period_all_df.height
+    human_event_count = total_event_count - bot_event_count
+
     dormant_stats = {
         "total_members": total_members,
         "dormant_count": dormant_count,
@@ -454,53 +487,57 @@ def _(period_months, pl, threshold_slider, user_summary):
         "watch_needed": watch_needed,
         "period_months": period_months,
         "threshold": threshold,
+        "bot_actor_count": bot_actor_count,
+        "human_actor_count": human_actor_count,
+        "bot_event_count": bot_event_count,
+        "human_event_count": human_event_count,
     }
-    return (
-        complete_dormant,
-        dormant_count,
-        dormant_ratio,
-        dormant_stats,
-        dormant_users,
-        low_activity,
-        threshold,
-        total_members,
-        watch_needed,
-    )
+    return dormant_stats, dormant_users, threshold
 
 
-# ============================================================
-# Cell 11: Summary Statistics
-# ============================================================
 @app.cell(hide_code=True)
-def _(dormant_stats, mo):
+def _(dormant_stats, former_users_detected, mo):
     stats = dormant_stats
 
+    # 退職者情報
+    former_count = len(former_users_detected)
+    former_list = ", ".join(sorted(list(former_users_detected)[:10]))
+    if former_count > 10:
+        former_list += f" ... 他{former_count - 10}名"
+
     summary_md = mo.md(f"""
-## 📊 分析結果サマリー
+    ## 📊 分析結果サマリー
 
-| 項目 | 値 |
-|------|-----|
-| **分析期間** | 過去 {stats["period_months"]} ヶ月 |
-| **休眠判定閾値** | {stats["threshold"]} イベント以下 |
-| **総メンバー数** | {stats["total_members"]:,} 人 |
-| **休眠ユーザー数** | {stats["dormant_count"]:,} 人 ({stats["dormant_ratio"]:.1f}%) |
+    | 項目 | 値 |
+    |------|-----|
+    | **分析期間** | 過去 {stats["period_months"]} ヶ月 |
+    | **休眠判定閾値** | {stats["threshold"]} イベント以下 |
+    | **総メンバー数** | {stats["total_members"]:,} 人 |
+    | **休眠ユーザー数** | {stats["dormant_count"]:,} 人 ({stats["dormant_ratio"]:.1f}%) |
+    | **監査ログ上のボットactor数** | {stats["bot_actor_count"]} |
+    | **監査ログ上の人間actor数** | {stats["human_actor_count"]} |
+    | **監査ログ上のボットイベント数** | {stats["bot_event_count"]:,} |
+    | **監査ログ上の人間イベント数** | {stats["human_event_count"]:,} |
 
-### 休眠ユーザー内訳
+    ### 休眠ユーザー内訳
 
-| ステータス | 人数 | 説明 |
-|-----------|------|------|
-| 🔴 完全休眠 | {stats["complete_dormant"]} 人 | 期間内アクティビティなし |
-| 🟡 低活動 | {stats["low_activity"]} 人 | 閾値の半分以下 |
-| 🟢 要観察 | {stats["watch_needed"]} 人 | 閾値以下だが活動あり |
+    | ステータス | 人数 | 説明 |
+    |-----------|------|------|
+    | 🔴 完全休眠 | {stats["complete_dormant"]} 人 | 期間内アクティビティなし |
+    | 🟡 低活動 | {stats["low_activity"]} 人 | 閾値の半分以下 |
+    | 🟢 要観察 | {stats["watch_needed"]} 人 | 閾値以下だが活動あり |
+
+    ### 🚪 退職者検出（監査ログに存在するがメンバー外）
+
+    - **検出数**: {former_count} 人
+    - **ユーザー**: {former_list if former_count > 0 else "なし"}
+
+    > 💡 退職者のCopilotライセンスが残っている場合、ライセンスの無駄遣いの可能性があります。
     """)
 
     summary_md
-    return stats, summary_md
 
 
-# ============================================================
-# Cell 12: Dormant Users Table
-# ============================================================
 @app.cell(hide_code=True)
 def _(dormant_users, mo, pl):
     # 表示用にフォーマット
@@ -534,12 +571,8 @@ def _(dormant_users, mo, pl):
         ],
         gap=1,
     )
-    return (display_df,)
 
 
-# ============================================================
-# Cell 13: Activity Distribution Chart
-# ============================================================
 @app.cell(hide_code=True)
 def _(alt, mo, pl, threshold, user_summary):
     # アクティビティ分布のヒストグラム
@@ -550,7 +583,7 @@ def _(alt, mo, pl, threshold, user_summary):
             pl.when(pl.col("audit_event_count") <= threshold)
             .then(pl.lit("休眠"))
             .otherwise(pl.lit("アクティブ"))
-            .alias("category"),
+            .alias("status"),
         ]
     )
 
@@ -565,7 +598,7 @@ def _(alt, mo, pl, threshold, user_summary):
             ),
             y=alt.Y("count():Q", title="ユーザー数"),
             color=alt.Color(
-                "category:N",
+                "status:N",
                 scale=alt.Scale(
                     domain=["休眠", "アクティブ"],
                     range=["#e74c3c", "#27ae60"],
@@ -597,12 +630,8 @@ def _(alt, mo, pl, threshold, user_summary):
         ],
         gap=1,
     )
-    return activity_data, combined_chart, histogram_chart, threshold_rule
 
 
-# ============================================================
-# Cell 14: Dormant Users by Status Chart
-# ============================================================
 @app.cell(hide_code=True)
 def _(alt, dormant_users, mo, pl):
     # ステータス別の休眠ユーザー数
@@ -641,12 +670,8 @@ def _(alt, dormant_users, mo, pl):
         ],
         gap=1,
     )
-    return status_chart, status_counts
 
 
-# ============================================================
-# Cell 15: Monthly Activity Trend
-# ============================================================
 @app.cell(hide_code=True)
 def _(alt, audit_period_df, dormant_users, mo, pl):
     # 休眠ユーザーのリスト
@@ -684,11 +709,16 @@ def _(alt, audit_period_df, dormant_users, mo, pl):
         ]
     )
 
+    # Altair/vega-liteで確実に描画できるよう、月を文字列(YYYY-MM)に変換
+    trend_long = trend_long.with_columns(
+        pl.col("month").dt.strftime("%Y-%m").alias("month_label")
+    )
+
     trend_chart = (
         alt.Chart(alt.Data(values=trend_long.to_dicts()))
         .mark_line(point=True)
         .encode(
-            x=alt.X("month:T", title="月"),
+            x=alt.X("month_label:O", title="月"),
             y=alt.Y("events:Q", title="イベント数"),
             color=alt.Color(
                 "category:N",
@@ -699,7 +729,7 @@ def _(alt, audit_period_df, dormant_users, mo, pl):
                 title="カテゴリ",
             ),
             tooltip=[
-                alt.Tooltip("month:T", title="月", format="%Y-%m"),
+                alt.Tooltip("month_label:N", title="月"),
                 alt.Tooltip("category:N", title="カテゴリ"),
                 alt.Tooltip("events:Q", title="イベント数"),
             ],
@@ -714,12 +744,8 @@ def _(alt, audit_period_df, dormant_users, mo, pl):
         ],
         gap=1,
     )
-    return dormant_logins, monthly_trend, trend_chart, trend_long
 
 
-# ============================================================
-# Cell 16: Copilot Analysis (if available)
-# ============================================================
 @app.cell(hide_code=True)
 def _(alt, copilot_df, dormant_users, mo, pl):
     copilot_analysis = None
@@ -772,15 +798,15 @@ def _(alt, copilot_df, dormant_users, mo, pl):
                 [
                     mo.md("## 🤖 休眠ユーザーのCopilot利用状況"),
                     mo.md(f"""
-| 項目 | 値 |
-|------|-----|
-| Copilotシート保有者 | {dormant_copilot.height} 人 |
-| Copilot利用あり | {copilot_active} 人 |
-| Copilot未利用 | {copilot_never_used} 人 |
-| キャンセル予定 | {copilot_pending} 人 |
+    | 項目 | 値 |
+    |------|-----|
+    | Copilotシート保有者 | {dormant_copilot.height} 人 |
+    | Copilot利用あり | {copilot_active} 人 |
+    | Copilot未利用 | {copilot_never_used} 人 |
+    | キャンセル予定 | {copilot_pending} 人 |
 
-**💡 推奨アクション**: Copilotシートを保有しているが監査ログ上で休眠状態のユーザーは、
-ライセンスの再割り当て候補となる可能性があります。
+    **💡 推奨アクション**: Copilotシートを保有しているが監査ログ上で休眠状態のユーザーは、
+    ライセンスの再割り当て候補となる可能性があります。
                     """),
                     mo.md("### エディタ別利用分布") if editor_dist.height > 0 else None,
                     editor_chart if editor_dist.height > 0 else None,
@@ -789,24 +815,20 @@ def _(alt, copilot_df, dormant_users, mo, pl):
             )
         else:
             copilot_analysis = mo.md("""
-## 🤖 休眠ユーザーのCopilot利用状況
+    ## 🤖 休眠ユーザーのCopilot利用状況
 
-休眠ユーザーの中にCopilotシートを保有しているユーザーはいません。
+    休眠ユーザーの中にCopilotシートを保有しているユーザーはいません。
             """)
     else:
         copilot_analysis = mo.md("""
-## 🤖 Copilot利用状況
+    ## 🤖 Copilot利用状況
 
-Copilot Seatsデータがアップロードされていないため、分析をスキップします。
+    Copilot Seatsデータがアップロードされていないため、分析をスキップします。
         """)
 
     copilot_analysis
-    return (copilot_analysis,)
 
 
-# ============================================================
-# Cell 17: Export Data
-# ============================================================
 @app.cell(hide_code=True)
 def _(dormant_users, mo, pl):
     # CSVエクスポート用データ
@@ -839,7 +861,6 @@ def _(dormant_users, mo, pl):
         ],
         gap=1,
     )
-    return csv_data, download_button, export_df
 
 
 if __name__ == "__main__":

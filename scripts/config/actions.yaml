@@ -1,0 +1,118 @@
+# =============================================================================
+# config/actions.yaml
+# GitHub監査ログのアクション定義
+# =============================================================================
+#
+# このファイルでは、監査ログイベントで使用されるアクションを定義します。
+# アクションは「通常アクション」と「危険なアクション」の2カテゴリに分類され、
+# それぞれ異なる目的で使用されます。
+#
+# アクション名の形式: {カテゴリ}.{操作}
+# 例: git.clone, repo.create, org.add_member
+
+# -----------------------------------------------------------------------------
+# 通常アクション (Normal Actions)
+# -----------------------------------------------------------------------------
+# 日常的な開発活動で発生するアクションとその出現頻度（重み）を定義します。
+#
+# weight: 出現確率の重み（0.0〜1.0）
+#   - 全weightの合計は約1.0になるように設定
+#   - 高い値 = より頻繁に出現
+#   - 例: weight=0.25 は全アクションの約25%がこのアクション
+#
+# weighted_choice()関数でランダム選択時に使用されます。
+normal_actions:
+  # ----- 高頻度アクション (Git操作) -----
+  # 開発者の日常的なGit操作。全体の約60%を占めます。
+  - action: "git.clone"           # リポジトリのクローン
+    weight: 0.25                  # 最も頻繁（25%）
+  - action: "git.fetch"           # リモートからのフェッチ
+    weight: 0.20                  # 20%
+  - action: "git.push"            # コードのプッシュ
+    weight: 0.15                  # 15%
+
+  # ----- 中頻度アクション (プルリクエスト・ダウンロード) -----
+  # コードレビューやファイル取得に関連する操作
+  - action: "pull_request.create" # PRの作成
+    weight: 0.08                  # 8%
+  - action: "pull_request.merge"  # PRのマージ
+    weight: 0.05                  # 5%
+  - action: "pull_request.close"  # PRのクローズ（マージなし）
+    weight: 0.03                  # 3%
+  - action: "repo.download_zip"   # ZIPファイルとしてダウンロード
+    weight: 0.02                  # 2%
+
+  # ----- 低頻度アクション (管理操作) -----
+  # リポジトリ、チーム、組織の管理に関連する操作
+  - action: "repo.create"         # 新規リポジトリの作成
+    weight: 0.02
+  - action: "repo.add_member"     # リポジトリへのメンバー追加
+    weight: 0.02
+  - action: "team.add_member"     # チームへのメンバー追加
+    weight: 0.02
+  - action: "team.add_repository" # チームへのリポジトリ追加
+    weight: 0.02
+
+  # ----- CI/CDアクション -----
+  - action: "workflows.completed_workflow_run"  # GitHub Actionsワークフロー完了
+    weight: 0.05                                # 自動化により比較的頻繁
+
+  # ----- セキュリティ・設定アクション -----
+  - action: "protected_branch.create"     # ブランチ保護ルールの作成
+    weight: 0.01
+  - action: "secret_scanning_alert.create"   # シークレットスキャンアラート発生
+    weight: 0.01
+  - action: "secret_scanning_alert.resolve"  # シークレットスキャンアラート解決
+    weight: 0.01
+
+  # ----- 組織管理アクション -----
+  - action: "org.add_member"      # 組織へのメンバー追加
+    weight: 0.01
+  - action: "org.invite_member"   # 組織への招待送信
+    weight: 0.01
+
+  # ----- インテグレーション・Webhookアクション -----
+  - action: "hook.create"                    # Webhookの作成
+    weight: 0.01
+  - action: "integration_installation.create" # GitHub Appのインストール
+    weight: 0.01
+
+  # ----- Copilotアクション -----
+  - action: "copilot.cfb_seat_added"  # Copilotシートの割り当て
+    weight: 0.02
+
+# -----------------------------------------------------------------------------
+# 危険なアクション (Dangerous Actions)
+# -----------------------------------------------------------------------------
+# セキュリティ上重要で、異常検知の対象となるアクション。
+# これらのアクションは以下の場合に使用されます:
+#   - 異常イベント生成時（anomaly_ratioで制御）
+#   - 深夜や休日のアクティビティ
+#   - 不審なユーザーからのアクセス
+#
+# これらは監査ログ分析で特に注視すべきアクションです。
+dangerous_actions:
+  # ----- リポジトリ関連の危険なアクション -----
+  - "repo.destroy"      # リポジトリの削除（データ損失リスク）
+  - "repo.transfer"     # リポジトリの所有権移転
+  - "repo.access"       # 可視性の変更（private→public等）
+
+  # ----- 組織メンバー関連の危険なアクション -----
+  - "org.remove_member" # メンバーの組織からの削除
+  - "org.update_member" # メンバー権限の変更
+
+  # ----- チーム関連の危険なアクション -----
+  - "team.destroy"      # チームの削除
+  - "team.remove_member" # チームからのメンバー削除
+
+  # ----- Webhook関連の危険なアクション -----
+  - "hook.config_changed" # Webhook設定の変更（悪意あるURLへの変更リスク）
+  - "hook.destroy"        # Webhookの削除
+
+  # ----- セキュリティ機能の無効化 -----
+  - "secret_scanning.disable"       # シークレットスキャンの無効化
+  - "protected_branch.destroy"      # ブランチ保護の削除
+  - "protected_branch.policy_override" # ブランチ保護ポリシーの上書き
+
+  # ----- ビジネス/エンタープライズ管理 -----
+  - "business.remove_admin"  # ビジネス管理者の削除

@@ -303,6 +303,7 @@ dependencies = [
     { name = "pyarrow" },
     { name = "pydantic" },
     { name = "python-dateutil" },
+    { name = "pyyaml" },
 ]
 
 [package.optional-dependencies]
@@ -377,6 +378,7 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.24.0" },
     { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=6.0.0" },
     { name = "python-dateutil", specifier = ">=2.9.0" },
+    { name = "pyyaml", specifier = ">=6.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
 ]
 provides-extras = ["dev", "test", "docs", "wasm", "all"]
