@@ -449,6 +449,46 @@ def weighted_choice(choices: list[tuple[str, float]]) -> str:
     return random.choices(items, weights=weights, k=1)[0]
 
 
+def choose_actor_for_timestamp(
+    timestamp: datetime,
+    *,
+    end_date: datetime,
+) -> dict[str, Any]:
+    """Choose an actor for a given timestamp.
+
+    - Includes low-activity users so they appear in audit logs.
+    - Includes former users only before their exit date.
+
+    Args:
+        timestamp: Event timestamp (UTC)
+        end_date: End of the generation window (UTC)
+
+    Returns:
+        A user dict with keys like name/id/ip_pool.
+    """
+    cfg = get_config()
+
+    eligible_former_users: list[dict[str, Any]] = []
+    for user in cfg.former_users:
+        exit_months = int(user.get("exit_months_ago", 0) or 0)
+        exit_date = end_date - timedelta(days=exit_months * 30)
+        if timestamp <= exit_date:
+            eligible_former_users.append(user)
+
+    groups: list[tuple[list[dict[str, Any]], float]] = [
+        (cfg.regular_users, 0.82),
+        (cfg.admin_users, 0.06),
+        (cfg.bot_users, 0.06),
+        (cfg.low_activity_users, 0.04),
+    ]
+    if eligible_former_users:
+        groups.append((eligible_former_users, 0.02))
+
+    user_lists, weights = zip(*groups, strict=False)
+    chosen_list = random.choices(user_lists, weights=weights, k=1)[0]
+    return random.choice(chosen_list)
+
+
 def generate_timestamp(
     base_time: datetime,
     *,
@@ -518,11 +558,18 @@ def generate_request_id() -> str:
 # ============================================================
 
 
-def generate_normal_event(timestamp: datetime) -> dict[str, Any]:
+def generate_normal_event(
+    timestamp: datetime,
+    *,
+    user: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Generate a normal audit log event."""
     cfg = get_config()
     action = weighted_choice(cfg.normal_actions)
-    user = random.choice(cfg.regular_users + cfg.admin_users + cfg.bot_users)
+    if user is None:
+        user = random.choice(
+            cfg.regular_users + cfg.admin_users + cfg.bot_users + cfg.low_activity_users
+        )
     repo = random.choice(cfg.repositories)
     country = random.choice(cfg.countries)
 
@@ -825,6 +872,8 @@ def generate_test_data(
     if start_date is None:
         start_date = datetime.now(UTC) - timedelta(days=days_span)
 
+    end_date = start_date + timedelta(days=days_span)
+
     events: list[dict[str, Any]] = []
     anomaly_count = int(count * anomaly_ratio)
     normal_count = count - anomaly_count
@@ -835,7 +884,8 @@ def generate_test_data(
         days_offset = random.randint(0, days_span - 1)
         base_time = start_date + timedelta(days=days_offset)
         timestamp = generate_timestamp(base_time, business_hours=True)
-        events.append(generate_normal_event(timestamp))
+        actor = choose_actor_for_timestamp(timestamp, end_date=end_date)
+        events.append(generate_normal_event(timestamp, user=actor))
 
     # Generate anomalous events
     print(f"Generating {anomaly_count} anomalous events...")
@@ -1099,6 +1149,8 @@ def save_copilot_seats(data: dict[str, Any], path: Path) -> None:
 
 def print_summary(events: list[dict[str, Any]]) -> None:
     """Print summary statistics of generated data."""
+    cfg = get_config()
+
     print("\n" + "=" * 60)
     print("Generated Data Summary")
     print("=" * 60)
@@ -1133,8 +1185,17 @@ def print_summary(events: list[dict[str, Any]]) -> None:
     for actor, count in sorted(actors.items(), key=lambda x: -x[1])[:10]:
         print(f"  {actor}: {count}")
 
+    # Actor categories (test data patterns)
+    low_activity_actor_count = sum(1 for a in actors if a.startswith("low-"))
+    former_actor_count = sum(1 for a in actors if a.startswith("former-"))
+
+    print("\nActor categories (test data patterns):")
+    print(
+        f"  Low activity actors: {low_activity_actor_count} / {len(cfg.low_activity_users)}"
+    )
+    print(f"  Former actors: {former_actor_count} / {len(cfg.former_users)}")
+
     # Anomaly indicators (JST基準で判定)
-    cfg = get_config()
 
     def get_jst_hour(timestamp_ms: int) -> int:
         """タイムスタンプからJSTの時間を取得。"""
@@ -1329,6 +1390,7 @@ def _run_members_generation(args: argparse.Namespace) -> None:
     print(f"  Regular users: {len(cfg.regular_users)}")
     print(f"  Low activity users: {len(cfg.low_activity_users)}")
     print(f"  Dormant users: {len(cfg.dormant_users)}")
+    print(f"  Former users (not in members): {len(cfg.former_users)}")
 
 
 def _run_copilot_generation(args: argparse.Namespace) -> None:
