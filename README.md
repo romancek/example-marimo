@@ -218,12 +218,34 @@ example-marimo/
 # 認証
 gh auth login
 
+# 権限不足で403になる場合は、必要スコープを追加してください（例）:
+# gh auth refresh -s read:org -s read:audit_log
+
 # 監査ログのエクスポート（過去90日間）
 gh api \
   -H "Accept: application/vnd.github+json" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
   --paginate \
   /orgs/{org}/audit-log \
   > data/audit_log.json
+
+# Org Membersの取得
+gh api \
+  -H "Accept: application/vnd.github+json" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  --paginate \
+  /orgs/{org}/members \
+  > data/org_members.json
+
+# Copilot Seatsの取得
+# 注意: 組織のCopilot課金情報にアクセスできる権限が必要です。
+# 権限不足の場合（例）: gh auth refresh -s read:org -s manage_billing:copilot
+gh api \
+  -H "Accept: application/vnd.github+json" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  --paginate \
+  "/orgs/{org}/copilot/billing/seats" \
+  > "data/copilot_seats_{org}.json"
 ```
 
 ### 方法2: REST API
