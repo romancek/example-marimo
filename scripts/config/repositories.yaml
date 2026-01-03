@@ -1,0 +1,90 @@
+# =============================================================================
+# config/repositories.yaml
+# リポジトリ定義
+# =============================================================================
+#
+# テストデータ生成で使用するリポジトリを定義します。
+# 合計400リポジトリを生成し、可視性（visibility）を分散させています。
+#
+# 可視性の分布:
+#   - private:  280リポジトリ (70%) - 組織内のみアクセス可能
+#   - internal:  80リポジトリ (20%) - Enterprise内で共有
+#   - public:    40リポジトリ (10%) - 一般公開
+
+# -----------------------------------------------------------------------------
+# リポジトリパターン定義 (Repository Patterns)
+# -----------------------------------------------------------------------------
+# パターンベースでリポジトリを一括生成します。
+#
+# 各パターンのパラメータ:
+#   pattern:       リポジトリ名のフォーマット文字列
+#                  {id:03d} は3桁ゼロ埋めの連番（例: 001, 002, ...）
+#   start_id:      連番の開始値
+#   end_id:        連番の終了値（この値を含む）
+#   repo_id_start: GitHub APIのリポジトリIDの開始値
+#                  連番に応じて自動的にインクリメント
+#   visibility:    リポジトリの可視性
+#                  - "private": 組織メンバーのみ
+#                  - "internal": Enterprise内で共有
+#                  - "public": 一般公開
+repositories:
+  # ----- プライベートリポジトリ (280個) -----
+  # repo-001 〜 repo-280
+  # 社内プロジェクト、機密性の高いコードを想定
+  - pattern: "repo-{id:03d}"
+    start_id: 1               # repo-001 から開始
+    end_id: 280               # repo-280 まで
+    repo_id_start: 101        # リポジトリID 101〜380
+    visibility: "private"
+
+  # ----- インターナルリポジトリ (80個) -----
+  # repo-281 〜 repo-360
+  # Enterprise内の他組織と共有するライブラリや共通コンポーネントを想定
+  - pattern: "repo-{id:03d}"
+    start_id: 281             # repo-281 から開始
+    end_id: 360               # repo-360 まで
+    repo_id_start: 381        # リポジトリID 381〜460
+    visibility: "internal"
+
+  # ----- パブリックリポジトリ (40個) -----
+  # repo-361 〜 repo-400
+  # OSSプロジェクト、公開ドキュメント、サンプルコードを想定
+  - pattern: "repo-{id:03d}"
+    start_id: 361             # repo-361 から開始
+    end_id: 400               # repo-400 まで
+    repo_id_start: 461        # リポジトリID 461〜500
+    visibility: "public"
+
+# -----------------------------------------------------------------------------
+# レガシーリポジトリ (Legacy Repositories)
+# -----------------------------------------------------------------------------
+# 後方互換性のために残している名前付きリポジトリ定義。
+# 現在は参照用のみで、実際の生成には使用されません。
+# 内部的には repo-001 〜 repo-008 にマッピングされます。
+#
+# これらは典型的な組織のリポジトリ構成例として参考になります。
+legacy_repositories:
+  - name: "frontend-app"      # フロントエンドアプリケーション
+    id: 101
+    visibility: "private"
+  - name: "backend-api"       # バックエンドAPI
+    id: 102
+    visibility: "private"
+  - name: "mobile-app"        # モバイルアプリケーション
+    id: 103
+    visibility: "private"
+  - name: "infrastructure"    # インフラ設定（IaC）
+    id: 104
+    visibility: "private"
+  - name: "documentation"     # ドキュメント（Enterprise内共有）
+    id: 105
+    visibility: "internal"
+  - name: "open-source-lib"   # 公開OSSライブラリ
+    id: 106
+    visibility: "public"
+  - name: "data-pipeline"     # データパイプライン
+    id: 107
+    visibility: "private"
+  - name: "ml-models"         # 機械学習モデル
+    id: 108
+    visibility: "private"

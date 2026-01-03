@@ -7,12 +7,18 @@ This script generates synthetic data that mimics real GitHub data:
 2. Org Members - Organization member list from GitHub API
 3. Copilot Seats - Copilot seat assignment data for multiple organizations
 
+Configuration is loaded from YAML files in scripts/config/:
+- settings.yaml: Organization settings, defaults, user agents, etc.
+- users.yaml: User definitions (admin, regular, bot, dormant, former, etc.)
+- repositories.yaml: Repository definitions
+- actions.yaml: Action definitions and weights
+
 Usage:
     # Generate all data types (recommended for dormant user analysis)
     python scripts/generate_test_data.py --all
 
     # Generate only audit logs
-    python scripts/generate_test_data.py -n 10000 -o data/test.ndjson
+    python scripts/generate_test_data.py -n 10000 -o data/test.json
 
     # Generate Org Members list
     python scripts/generate_test_data.py --generate-members --members-count 50
@@ -30,161 +36,406 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
+
+import yaml
+
+
+# タイムゾーン定義
+# 時間生成はJSTベースで行い、最終的にUTCのUnix timestampに変換する
+JST = ZoneInfo("Asia/Tokyo")
 
 
 # ============================================================
-# Configuration
+# Configuration Loading
 # ============================================================
 
-# Organization and repository configuration
-ORG_NAME = "example-org"
-ORG_ID = 12345678
+# Path to config directory
+CONFIG_DIR = Path(__file__).parent / "config"
 
-# User pools with different activity patterns
-ADMIN_USERS = [
-    {"name": "admin-user", "id": 1001, "ip_pool": ["10.0.1.1", "10.0.1.2"]},
-    {"name": "security-admin", "id": 1002, "ip_pool": ["10.0.2.1", "192.168.1.100"]},
-    {"name": "org-owner", "id": 1003, "ip_pool": ["10.0.3.1"]},
-]
 
-REGULAR_USERS = [
-    {"name": "dev-alice", "id": 2001, "ip_pool": ["10.1.1.1", "10.1.1.2"]},
-    {"name": "dev-bob", "id": 2002, "ip_pool": ["10.1.2.1", "10.1.2.2", "10.1.2.3"]},
-    {"name": "dev-carol", "id": 2003, "ip_pool": ["10.1.3.1"]},
-    {"name": "dev-david", "id": 2004, "ip_pool": ["10.1.4.1", "10.1.4.2"]},
-    {"name": "dev-eve", "id": 2005, "ip_pool": ["10.1.5.1"]},
-    {"name": "dev-frank", "id": 2006, "ip_pool": ["10.1.6.1", "10.1.6.2"]},
-    {"name": "qa-george", "id": 2007, "ip_pool": ["10.2.1.1"]},
-    {"name": "qa-helen", "id": 2008, "ip_pool": ["10.2.2.1"]},
-    {"name": "devops-ivan", "id": 2009, "ip_pool": ["10.3.1.1", "10.3.1.2"]},
-    {"name": "devops-julia", "id": 2010, "ip_pool": ["10.3.2.1"]},
-]
+def load_yaml_config(filename: str) -> dict[str, Any]:
+    """Load a YAML configuration file.
 
-BOT_USERS = [
-    {"name": "dependabot[bot]", "id": 9001, "ip_pool": ["140.82.112.1"]},
-    {"name": "github-actions[bot]", "id": 9002, "ip_pool": ["140.82.112.2"]},
-    {"name": "renovate[bot]", "id": 9003, "ip_pool": ["140.82.112.3"]},
-]
+    Args:
+        filename: Name of the YAML file in the config directory.
 
-# Suspicious user for anomaly patterns
-SUSPICIOUS_USER = {
-    "name": "suspicious-user",
-    "id": 3001,
-    "ip_pool": ["203.0.113.1", "198.51.100.1"],
-}
+    Returns:
+        Parsed YAML content as a dictionary.
+    """
+    config_path = CONFIG_DIR / filename
+    if not config_path.exists():
+        raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
-# Repository pool
-REPOSITORIES = [
-    {"name": f"{ORG_NAME}/frontend-app", "id": 101, "visibility": "private"},
-    {"name": f"{ORG_NAME}/backend-api", "id": 102, "visibility": "private"},
-    {"name": f"{ORG_NAME}/mobile-app", "id": 103, "visibility": "private"},
-    {"name": f"{ORG_NAME}/infrastructure", "id": 104, "visibility": "private"},
-    {"name": f"{ORG_NAME}/documentation", "id": 105, "visibility": "internal"},
-    {"name": f"{ORG_NAME}/open-source-lib", "id": 106, "visibility": "public"},
-    {"name": f"{ORG_NAME}/data-pipeline", "id": 107, "visibility": "private"},
-    {"name": f"{ORG_NAME}/ml-models", "id": 108, "visibility": "private"},
-]
+    with config_path.open("r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
 
-TEAMS = ["engineering", "qa", "devops", "security", "data-science"]
 
-# Action distributions (realistic weights)
-NORMAL_ACTIONS = [
-    # High frequency actions (git operations)
-    ("git.clone", 0.25),
-    ("git.fetch", 0.20),
-    ("git.push", 0.15),
-    # Medium frequency actions
-    ("pull_request.create", 0.08),
-    ("pull_request.merge", 0.05),
-    ("pull_request.close", 0.03),
-    ("repo.download_zip", 0.02),
-    # Lower frequency actions
-    ("repo.create", 0.02),
-    ("repo.add_member", 0.02),
-    ("team.add_member", 0.02),
-    ("team.add_repository", 0.02),
-    ("workflows.completed_workflow_run", 0.05),
-    ("protected_branch.create", 0.01),
-    ("secret_scanning_alert.create", 0.01),
-    ("secret_scanning_alert.resolve", 0.01),
-    ("org.add_member", 0.01),
-    ("org.invite_member", 0.01),
-    ("hook.create", 0.01),
-    ("integration_installation.create", 0.01),
-    ("copilot.cfb_seat_added", 0.02),
-]
+def load_all_config() -> dict[str, Any]:
+    """Load all configuration files.
 
-# Dangerous actions (for anomaly patterns)
-DANGEROUS_ACTIONS = [
-    "repo.destroy",
-    "repo.transfer",
-    "repo.access",  # visibility change
-    "org.remove_member",
-    "org.update_member",
-    "team.destroy",
-    "team.remove_member",
-    "hook.config_changed",
-    "hook.destroy",
-    "secret_scanning.disable",
-    "protected_branch.destroy",
-    "protected_branch.policy_override",
-    "business.remove_admin",
-]
+    Returns:
+        Dictionary containing all configuration data.
+    """
+    return {
+        "settings": load_yaml_config("settings.yaml"),
+        "users": load_yaml_config("users.yaml"),
+        "repositories": load_yaml_config("repositories.yaml"),
+        "actions": load_yaml_config("actions.yaml"),
+    }
 
-# User agents
-USER_AGENTS = [
-    "GitHub Desktop/3.3.0",
-    "git/2.42.0",
-    "git/2.43.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "GitHub CLI/2.40.0",
-    "python-requests/2.31.0",
-]
 
-# Countries for geographic distribution
-COUNTRIES = [
-    {"code": "JP", "name": "Japan"},
-    {"code": "US", "name": "United States"},
-    {"code": "GB", "name": "United Kingdom"},
-    {"code": "DE", "name": "Germany"},
-    {"code": "SG", "name": "Singapore"},
-]
+# ============================================================
+# Configuration Data Classes
+# ============================================================
 
-# Suspicious countries (for anomaly detection)
-SUSPICIOUS_COUNTRIES = [
-    {"code": "RU", "name": "Russia"},
-    {"code": "CN", "name": "China"},
-    {"code": "KP", "name": "North Korea"},
-]
 
-# Additional users for dormant user analysis
-# These users appear in Org Members but have low/no activity in audit logs
-DORMANT_USERS = [
-    {"name": "dormant-user-1", "id": 4001, "ip_pool": ["10.4.1.1"]},
-    {"name": "dormant-user-2", "id": 4002, "ip_pool": ["10.4.2.1"]},
-    {"name": "dormant-user-3", "id": 4003, "ip_pool": ["10.4.3.1"]},
-    {"name": "low-activity-1", "id": 4004, "ip_pool": ["10.4.4.1"]},
-    {"name": "low-activity-2", "id": 4005, "ip_pool": ["10.4.5.1"]},
-]
+class Config:
+    """Configuration container loaded from YAML files."""
 
-# Users who left the organization (in audit logs but not in current members)
-FORMER_USERS = [
-    {"name": "former-dev-mike", "id": 5001, "ip_pool": ["10.5.1.1"]},
-    {"name": "former-qa-nancy", "id": 5002, "ip_pool": ["10.5.2.1"]},
-]
+    _instance: Config | None = None
 
-# All organization members (for Org Members list generation)
-# Excludes FORMER_USERS and BOT_USERS
-ALL_ORG_MEMBERS = ADMIN_USERS + REGULAR_USERS + DORMANT_USERS
+    def __init__(self) -> None:
+        """Initialize configuration from YAML files."""
+        self._config = load_all_config()
+        self._init_settings()
+        self._init_users()
+        self._init_repositories()
+        self._init_actions()
 
-# Copilot configuration
-COPILOT_EDITORS = [
-    "vscode/1.85.0/copilot/1.142.0",
-    "vscode/1.86.0/copilot/1.143.0",
-    "JetBrains-IU/2023.3/copilot/1.4.5",
-    "neovim/0.9.4/copilot/1.11.1",
-]
+    @classmethod
+    def get_instance(cls) -> Config:
+        """Get singleton instance of Config."""
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def reset(cls) -> None:
+        """Reset singleton instance (for testing)."""
+        cls._instance = None
+
+    def _init_settings(self) -> None:
+        """Initialize settings from config."""
+        settings = self._config["settings"]
+
+        # Organization settings
+        org = settings["organization"]
+        self.org_name: str = org["name"]
+        self.org_id: int = org["id"]
+
+        # Defaults
+        defaults = settings["defaults"]
+        self.default_days: int = defaults["days"]
+        self.default_event_count: int = defaults["event_count"]
+        self.default_anomaly_ratio: float = defaults["anomaly_ratio"]
+        self.default_copilot_coverage: float = defaults["copilot_coverage"]
+        self.default_copilot_orgs: list[str] = defaults["copilot_orgs"]
+
+        # User agents and editors
+        self.user_agents: list[str] = settings["user_agents"]
+        self.copilot_editors: list[str] = settings["copilot_editors"]
+
+        # Countries
+        self.countries: list[dict[str, str]] = settings["countries"]["normal"]
+        self.suspicious_countries: list[dict[str, str]] = settings["countries"][
+            "suspicious"
+        ]
+
+        # Teams
+        self.teams: list[str] = settings["teams"]
+
+    def _init_users(self) -> None:
+        """Initialize user data from config."""
+        users = self._config["users"]
+
+        # Admin users
+        self.admin_users: list[dict[str, Any]] = users["admin_users"]
+
+        # Regular users (generated from pattern)
+        self.regular_users: list[dict[str, Any]] = self._generate_regular_users(
+            users["regular_users"]
+        )
+
+        # Bot users
+        self.bot_users: list[dict[str, Any]] = users["bot_users"]
+
+        # Suspicious user
+        self.suspicious_user: dict[str, Any] = users["suspicious_user"]
+
+        # Low activity users (generated from patterns)
+        self.low_activity_users: list[dict[str, Any]] = (
+            self._generate_low_activity_users(users["low_activity_users"])
+        )
+
+        # Dormant users (generated from patterns)
+        self.dormant_users: list[dict[str, Any]] = self._generate_dormant_users(
+            users["dormant_users"]
+        )
+
+        # Former users (generated from patterns)
+        self.former_users: list[dict[str, Any]] = self._generate_former_users(
+            users["former_users"]
+        )
+
+        # All org members (excludes former users and bots)
+        self.all_org_members: list[dict[str, Any]] = (
+            self.admin_users
+            + self.regular_users
+            + self.low_activity_users
+            + self.dormant_users
+        )
+
+    def _generate_regular_users(self, config: dict[str, Any]) -> list[dict[str, Any]]:
+        """Generate regular users from pattern config."""
+        users = []
+        pattern = config["pattern"]
+        start_id = config["start_id"]
+        end_id = config["end_id"]
+        user_id_start = config["user_id_start"]
+        ip_prefix = config["ip_prefix"]
+
+        for i in range(start_id, end_id + 1):
+            name = pattern.format(id=i)
+            user_id = user_id_start + (i - start_id)
+            # Generate IP address
+            ip_third = (i - 1) // 256
+            ip_fourth = ((i - 1) % 256) + 1
+            ip_pool = [f"{ip_prefix}.{ip_third}.{ip_fourth}"]
+
+            users.append(
+                {
+                    "name": name,
+                    "id": user_id,
+                    "ip_pool": ip_pool,
+                }
+            )
+
+        return users
+
+    def _generate_low_activity_users(
+        self, config: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Generate low activity users from pattern config.
+
+        Pattern-based generation:
+        - period x events x copilot_states combinations
+        - Naming: low-{period}-e{events:03d}-c{copilot}
+        """
+        users = []
+        user_id = config["user_id_start"]
+        ip_prefix = config["ip_prefix"]
+
+        # Copilot state abbreviations for naming
+        copilot_abbrev = {
+            "none": "none",
+            "1m": "1m",
+            "3m": "3m",
+            "6m": "6m",
+            "null": "null",
+        }
+
+        for pattern in config["patterns"]:
+            period = pattern["period"]
+            for events in pattern["events"]:
+                for copilot_state in pattern["copilot_states"]:
+                    abbrev = copilot_abbrev.get(copilot_state, copilot_state)
+                    name = f"low-{period}-e{events:03d}-c{abbrev}"
+                    ip_offset = user_id - config["user_id_start"]
+                    users.append(
+                        {
+                            "name": name,
+                            "id": user_id,
+                            "ip_pool": [
+                                f"{ip_prefix}.{ip_offset // 256}.{(ip_offset % 256) + 1}"
+                            ],
+                            "events_per_month": events,
+                            "copilot_state": copilot_state,
+                            "period": period,
+                        }
+                    )
+                    user_id += 1
+
+        return users
+
+    def _generate_dormant_users(self, config: dict[str, Any]) -> list[dict[str, Any]]:
+        """Generate dormant users from pattern config.
+
+        Pattern-based generation:
+        - activity type: historical_events x copilot_states
+        - invite_only type: copilot_states only
+        - Naming: dormant-a{activity}-c{copilot}
+        """
+        users = []
+        user_id = config["user_id_start"]
+        ip_prefix = config["ip_prefix"]
+
+        # Activity level abbreviations
+        activity_abbrev = {10: "010", 100: "100", 1000: "1k"}
+        copilot_abbrev = {
+            "none": "none",
+            "1m": "1m",
+            "3m": "3m",
+            "6m": "6m",
+            "null": "null",
+        }
+
+        for pattern in config["patterns"]:
+            pattern_type = pattern["type"]
+
+            if pattern_type == "activity":
+                for events in pattern["historical_events"]:
+                    for copilot_state in pattern["copilot_states"]:
+                        a_abbrev = activity_abbrev.get(events, str(events))
+                        c_abbrev = copilot_abbrev.get(copilot_state, copilot_state)
+                        name = f"dormant-a{a_abbrev}-c{c_abbrev}"
+                        ip_offset = user_id - config["user_id_start"]
+                        users.append(
+                            {
+                                "name": name,
+                                "id": user_id,
+                                "ip_pool": [
+                                    f"{ip_prefix}.{ip_offset // 256}.{(ip_offset % 256) + 1}"
+                                ],
+                                "historical_events": events,
+                                "copilot_state": copilot_state,
+                                "invite_only": False,
+                            }
+                        )
+                        user_id += 1
+
+            elif pattern_type == "invite_only":
+                for copilot_state in pattern["copilot_states"]:
+                    c_abbrev = copilot_abbrev.get(copilot_state, copilot_state)
+                    name = f"dormant-ainv-c{c_abbrev}"
+                    ip_offset = user_id - config["user_id_start"]
+                    users.append(
+                        {
+                            "name": name,
+                            "id": user_id,
+                            "ip_pool": [
+                                f"{ip_prefix}.{ip_offset // 256}.{(ip_offset % 256) + 1}"
+                            ],
+                            "historical_events": 0,
+                            "copilot_state": copilot_state,
+                            "invite_only": True,
+                        }
+                    )
+                    user_id += 1
+
+        return users
+
+    def _generate_former_users(self, config: dict[str, Any]) -> list[dict[str, Any]]:
+        """Generate former users from pattern config.
+
+        Pattern-based generation:
+        - exit_months x events_per_month x copilot_states = 36 systematic users
+        - Plus random users to reach target count
+        - Naming: former-x{exit}m-e{events:03d}-c{copilot}
+        """
+        users = []
+        user_id = config["user_id_start"]
+        ip_prefix = config["ip_prefix"]
+        patterns = config["patterns"]
+
+        # Copilot state abbreviations for naming
+        copilot_abbrev = {
+            "none": "none",
+            "pre-1m": "p1m",
+            "pre-3m": "p3m",
+            "unused": "unu",
+        }
+
+        # Generate systematic users from patterns
+        for exit_month in patterns["exit_months"]:
+            for events in patterns["events_per_month"]:
+                for copilot_state in patterns["copilot_states"]:
+                    c_abbrev = copilot_abbrev.get(copilot_state, copilot_state)
+                    name = f"former-x{exit_month}m-e{events:03d}-c{c_abbrev}"
+                    ip_offset = user_id - config["user_id_start"]
+                    users.append(
+                        {
+                            "name": name,
+                            "id": user_id,
+                            "ip_pool": [
+                                f"{ip_prefix}.{ip_offset // 256}.{(ip_offset % 256) + 1}"
+                            ],
+                            "exit_months_ago": exit_month,
+                            "events_per_month": events,
+                            "copilot_state": copilot_state,
+                        }
+                    )
+                    user_id += 1
+
+        # Generate random users
+        random_config = config["random_users"]
+        random_count = random_config["count"]
+        name_pattern = random_config["name_pattern"]
+
+        for i in range(random_count):
+            name = name_pattern.format(id=i + 1)
+            ip_offset = user_id - config["user_id_start"]
+            users.append(
+                {
+                    "name": name,
+                    "id": user_id,
+                    "ip_pool": [
+                        f"{ip_prefix}.{ip_offset // 256}.{(ip_offset % 256) + 1}"
+                    ],
+                    "exit_months_ago": random.choice(patterns["exit_months"]),
+                    "events_per_month": random.choice(patterns["events_per_month"]),
+                    "copilot_state": random.choice(patterns["copilot_states"]),
+                }
+            )
+            user_id += 1
+
+        return users
+
+    def _init_repositories(self) -> None:
+        """Initialize repository data from config."""
+        repos_config = self._config["repositories"]
+        self.repositories: list[dict[str, Any]] = []
+
+        # Generate repositories from patterns
+        for pattern_config in repos_config["repositories"]:
+            pattern = pattern_config["pattern"]
+            start_id = pattern_config["start_id"]
+            end_id = pattern_config["end_id"]
+            repo_id_start = pattern_config["repo_id_start"]
+            visibility = pattern_config["visibility"]
+
+            for i in range(start_id, end_id + 1):
+                name = pattern.format(id=i)
+                repo_id = repo_id_start + (i - start_id)
+                self.repositories.append(
+                    {
+                        "name": f"{self.org_name}/{name}",
+                        "id": repo_id,
+                        "visibility": visibility,
+                    }
+                )
+
+    def _init_actions(self) -> None:
+        """Initialize action data from config."""
+        actions_config = self._config["actions"]
+
+        # Normal actions with weights
+        self.normal_actions: list[tuple[str, float]] = [
+            (a["action"], a["weight"]) for a in actions_config["normal_actions"]
+        ]
+
+        # Dangerous actions
+        self.dangerous_actions: list[str] = actions_config["dangerous_actions"]
+
+
+# ============================================================
+# Global config accessor (for backward compatibility)
+# ============================================================
+
+
+def get_config() -> Config:
+    """Get the global configuration instance."""
+    return Config.get_instance()
 
 
 # ============================================================
@@ -207,31 +458,39 @@ def generate_timestamp(
 ) -> datetime:
     """Generate a realistic timestamp.
 
+    時間生成はJSTベースで行い、最終的にUTCに変換して返す。
+    これにより、営業時間や深夜時間が日本時間で正しく反映される。
+
     Args:
-        base_time: Base datetime to generate around
-        business_hours: Generate during business hours (9-18)
-        late_night: Generate during late night (22-06)
-        weekend: Generate on weekend
+        base_time: Base datetime to generate around (UTC)
+        business_hours: Generate during business hours (JST 9:00-18:00)
+        late_night: Generate during late night (JST 22:00-06:00)
+        weekend: Generate on weekend (JST)
 
     Returns:
-        Generated datetime with timezone
+        Generated datetime with UTC timezone
     """
-    # Adjust day of week
+    # JSTに変換して日付・曜日を調整
+    base_time_jst = base_time.astimezone(JST)
+
+    # Adjust day of week (based on JST)
     if weekend:
         # Move to Saturday or Sunday
-        days_to_weekend = (5 - base_time.weekday()) % 7
+        days_to_weekend = (5 - base_time_jst.weekday()) % 7
         if days_to_weekend == 0:
             days_to_weekend = random.choice([0, 1])  # Saturday or Sunday
-        base_time = base_time + timedelta(days=days_to_weekend)
-    elif base_time.weekday() >= 5:
+        base_time_jst = base_time_jst + timedelta(days=days_to_weekend)
+    elif base_time_jst.weekday() >= 5:
         # Move to Monday if currently weekend
-        days_to_monday = (7 - base_time.weekday()) % 7
-        base_time = base_time + timedelta(days=days_to_monday)
+        days_to_monday = (7 - base_time_jst.weekday()) % 7
+        base_time_jst = base_time_jst + timedelta(days=days_to_monday)
 
-    # Adjust hour
+    # Adjust hour (JST hours)
     if late_night:
+        # JST 22:00-05:59 (深夜・早朝)
         hour = random.choice([22, 23, 0, 1, 2, 3, 4, 5])
     elif business_hours:
+        # JST 9:00-17:59 (営業時間)
         hour = random.randint(9, 17)
     else:
         hour = random.randint(0, 23)
@@ -239,7 +498,9 @@ def generate_timestamp(
     minute = random.randint(0, 59)
     second = random.randint(0, 59)
 
-    return base_time.replace(hour=hour, minute=minute, second=second, tzinfo=UTC)
+    # JSTで時刻を設定し、UTCに変換して返す
+    result_jst = base_time_jst.replace(hour=hour, minute=minute, second=second)
+    return result_jst.astimezone(UTC)
 
 
 def generate_document_id() -> str:
@@ -259,10 +520,11 @@ def generate_request_id() -> str:
 
 def generate_normal_event(timestamp: datetime) -> dict[str, Any]:
     """Generate a normal audit log event."""
-    action = weighted_choice(NORMAL_ACTIONS)
-    user = random.choice(REGULAR_USERS + ADMIN_USERS + BOT_USERS)
-    repo = random.choice(REPOSITORIES)
-    country = random.choice(COUNTRIES)
+    cfg = get_config()
+    action = weighted_choice(cfg.normal_actions)
+    user = random.choice(cfg.regular_users + cfg.admin_users + cfg.bot_users)
+    repo = random.choice(cfg.repositories)
+    country = random.choice(cfg.countries)
 
     event = {
         "@timestamp": int(timestamp.timestamp() * 1000),
@@ -276,10 +538,10 @@ def generate_normal_event(timestamp: datetime) -> dict[str, Any]:
             "country_name": country["name"],
         },
         "country_code": country["code"],
-        "org": ORG_NAME,
-        "org_id": ORG_ID,
+        "org": cfg.org_name,
+        "org_id": cfg.org_id,
         "operation_type": _get_operation_type(action),
-        "user_agent": random.choice(USER_AGENTS),
+        "user_agent": random.choice(cfg.user_agents),
         "_document_id": generate_document_id(),
         "request_id": generate_request_id(),
         "created_at": int(timestamp.timestamp() * 1000),
@@ -294,11 +556,11 @@ def generate_normal_event(timestamp: datetime) -> dict[str, Any]:
 
     # Add team info for team actions
     if action.startswith("team."):
-        event["team"] = random.choice(TEAMS)
+        event["team"] = random.choice(cfg.teams)
 
     # Add user info for member actions
     if "member" in action:
-        target_user = random.choice(REGULAR_USERS)
+        target_user = random.choice(cfg.regular_users)
         event["user"] = target_user["name"]
         event["user_id"] = target_user["id"]
 
@@ -307,19 +569,20 @@ def generate_normal_event(timestamp: datetime) -> dict[str, Any]:
 
 def generate_late_night_event(timestamp: datetime) -> dict[str, Any]:
     """Generate a late night (anomalous) event."""
+    cfg = get_config()
     # Late night events are more likely to be from suspicious users
     if random.random() < 0.3:
-        user = SUSPICIOUS_USER
-        country = random.choice(SUSPICIOUS_COUNTRIES)
+        user = cfg.suspicious_user
+        country = random.choice(cfg.suspicious_countries)
     else:
-        user = random.choice(ADMIN_USERS)  # Admins sometimes work late
-        country = random.choice(COUNTRIES)
+        user = random.choice(cfg.admin_users)  # Admins sometimes work late
+        country = random.choice(cfg.countries)
 
-    action = weighted_choice(NORMAL_ACTIONS)
+    action = weighted_choice(cfg.normal_actions)
 
     # Higher chance of dangerous actions at night
     if random.random() < 0.1:
-        action = random.choice(DANGEROUS_ACTIONS)
+        action = random.choice(cfg.dangerous_actions)
 
     timestamp = generate_timestamp(timestamp, late_night=True)
 
@@ -335,17 +598,17 @@ def generate_late_night_event(timestamp: datetime) -> dict[str, Any]:
             "country_name": country["name"],
         },
         "country_code": country["code"],
-        "org": ORG_NAME,
-        "org_id": ORG_ID,
+        "org": cfg.org_name,
+        "org_id": cfg.org_id,
         "operation_type": _get_operation_type(action),
-        "user_agent": random.choice(USER_AGENTS),
+        "user_agent": random.choice(cfg.user_agents),
         "_document_id": generate_document_id(),
         "request_id": generate_request_id(),
         "created_at": int(timestamp.timestamp() * 1000),
     }
 
     # Add repo info
-    repo = random.choice(REPOSITORIES)
+    repo = random.choice(cfg.repositories)
     if action.startswith(("repo.", "git.", "pull_request.", "protected_branch.")):
         event["repo"] = repo["name"]
         event["repo_id"] = repo["id"]
@@ -361,8 +624,9 @@ def generate_bulk_operation_events(
 
     Simulates a user performing 60+ operations in 5 minutes.
     """
+    cfg = get_config()
     events = []
-    user = random.choice([*ADMIN_USERS, SUSPICIOUS_USER])
+    user = random.choice([*cfg.admin_users, cfg.suspicious_user])
     action = random.choice(["git.clone", "repo.download_zip", "git.fetch"])
 
     for _ in range(count):
@@ -377,16 +641,16 @@ def generate_bulk_operation_events(
             "actor_id": user["id"],
             "actor_ip": random.choice(user["ip_pool"]),
             "actor_is_bot": False,
-            "org": ORG_NAME,
-            "org_id": ORG_ID,
+            "org": cfg.org_name,
+            "org_id": cfg.org_id,
             "operation_type": "access",
-            "user_agent": random.choice(USER_AGENTS),
+            "user_agent": random.choice(cfg.user_agents),
             "_document_id": generate_document_id(),
             "request_id": generate_request_id(),
             "created_at": int(timestamp.timestamp() * 1000),
         }
 
-        repo = random.choice(REPOSITORIES)
+        repo = random.choice(cfg.repositories)
         event["repo"] = repo["name"]
         event["repo_id"] = repo["id"]
 
@@ -397,15 +661,16 @@ def generate_bulk_operation_events(
 
 def generate_dangerous_action_event(timestamp: datetime) -> dict[str, Any]:
     """Generate a dangerous action event."""
-    action = random.choice(DANGEROUS_ACTIONS)
+    cfg = get_config()
+    action = random.choice(cfg.dangerous_actions)
 
     # Dangerous actions mostly by admins, sometimes suspicious
     if random.random() < 0.2:
-        user = SUSPICIOUS_USER
-        country = random.choice(SUSPICIOUS_COUNTRIES)
+        user = cfg.suspicious_user
+        country = random.choice(cfg.suspicious_countries)
     else:
-        user = random.choice(ADMIN_USERS)
-        country = random.choice(COUNTRIES)
+        user = random.choice(cfg.admin_users)
+        country = random.choice(cfg.countries)
 
     event = {
         "@timestamp": int(timestamp.timestamp() * 1000),
@@ -419,25 +684,25 @@ def generate_dangerous_action_event(timestamp: datetime) -> dict[str, Any]:
             "country_name": country["name"],
         },
         "country_code": country["code"],
-        "org": ORG_NAME,
-        "org_id": ORG_ID,
+        "org": cfg.org_name,
+        "org_id": cfg.org_id,
         "operation_type": _get_operation_type(action),
-        "user_agent": random.choice(USER_AGENTS),
+        "user_agent": random.choice(cfg.user_agents),
         "_document_id": generate_document_id(),
         "request_id": generate_request_id(),
         "created_at": int(timestamp.timestamp() * 1000),
     }
 
-    repo = random.choice(REPOSITORIES)
+    repo = random.choice(cfg.repositories)
     if action.startswith(("repo.", "protected_branch.", "hook.", "secret_scanning.")):
         event["repo"] = repo["name"]
         event["repo_id"] = repo["id"]
 
     if action.startswith("team."):
-        event["team"] = random.choice(TEAMS)
+        event["team"] = random.choice(cfg.teams)
 
     if "member" in action:
-        target_user = random.choice(REGULAR_USERS)
+        target_user = random.choice(cfg.regular_users)
         event["user"] = target_user["name"]
         event["user_id"] = target_user["id"]
 
@@ -446,17 +711,18 @@ def generate_dangerous_action_event(timestamp: datetime) -> dict[str, Any]:
 
 def generate_weekend_event(timestamp: datetime) -> dict[str, Any]:
     """Generate a weekend activity event (anomaly)."""
+    cfg = get_config()
     timestamp = generate_timestamp(timestamp, weekend=True, business_hours=False)
 
     # Weekend events from various sources
     if random.random() < 0.4:
-        user = random.choice(BOT_USERS)  # Bots work on weekends
+        user = random.choice(cfg.bot_users)  # Bots work on weekends
     elif random.random() < 0.3:
-        user = SUSPICIOUS_USER
+        user = cfg.suspicious_user
     else:
-        user = random.choice(ADMIN_USERS + REGULAR_USERS)
+        user = random.choice(cfg.admin_users + cfg.regular_users)
 
-    action = weighted_choice(NORMAL_ACTIONS)
+    action = weighted_choice(cfg.normal_actions)
 
     event = {
         "@timestamp": int(timestamp.timestamp() * 1000),
@@ -465,16 +731,16 @@ def generate_weekend_event(timestamp: datetime) -> dict[str, Any]:
         "actor_id": user["id"],
         "actor_ip": random.choice(user["ip_pool"]),
         "actor_is_bot": user["name"].endswith("[bot]"),
-        "org": ORG_NAME,
-        "org_id": ORG_ID,
+        "org": cfg.org_name,
+        "org_id": cfg.org_id,
         "operation_type": _get_operation_type(action),
-        "user_agent": random.choice(USER_AGENTS),
+        "user_agent": random.choice(cfg.user_agents),
         "_document_id": generate_document_id(),
         "request_id": generate_request_id(),
         "created_at": int(timestamp.timestamp() * 1000),
     }
 
-    repo = random.choice(REPOSITORIES)
+    repo = random.choice(cfg.repositories)
     if action.startswith(("repo.", "git.", "pull_request.")):
         event["repo"] = repo["name"]
         event["repo_id"] = repo["id"]
@@ -484,12 +750,13 @@ def generate_weekend_event(timestamp: datetime) -> dict[str, Any]:
 
 def generate_unusual_ip_event(timestamp: datetime) -> dict[str, Any]:
     """Generate event from unusual IP (anomaly)."""
-    user = random.choice(REGULAR_USERS + ADMIN_USERS)
+    cfg = get_config()
+    user = random.choice(cfg.regular_users + cfg.admin_users)
     # Use an unusual IP not in the user's normal pool
     unusual_ip = f"198.51.100.{random.randint(1, 254)}"
-    country = random.choice(SUSPICIOUS_COUNTRIES)
+    country = random.choice(cfg.suspicious_countries)
 
-    action = weighted_choice(NORMAL_ACTIONS)
+    action = weighted_choice(cfg.normal_actions)
 
     event = {
         "@timestamp": int(timestamp.timestamp() * 1000),
@@ -503,16 +770,16 @@ def generate_unusual_ip_event(timestamp: datetime) -> dict[str, Any]:
             "country_name": country["name"],
         },
         "country_code": country["code"],
-        "org": ORG_NAME,
-        "org_id": ORG_ID,
+        "org": cfg.org_name,
+        "org_id": cfg.org_id,
         "operation_type": _get_operation_type(action),
-        "user_agent": random.choice(USER_AGENTS),
+        "user_agent": random.choice(cfg.user_agents),
         "_document_id": generate_document_id(),
         "request_id": generate_request_id(),
         "created_at": int(timestamp.timestamp() * 1000),
     }
 
-    repo = random.choice(REPOSITORIES)
+    repo = random.choice(cfg.repositories)
     if action.startswith(("repo.", "git.", "pull_request.")):
         event["repo"] = repo["name"]
         event["repo_id"] = repo["id"]
@@ -647,14 +914,15 @@ def generate_org_members(
     """Generate Org Members list mimicking GitHub API response.
 
     Args:
-        members: Custom member list. If None, uses ALL_ORG_MEMBERS.
+        members: Custom member list. If None, uses all org members from config.
         include_all: If True, include all default members.
 
     Returns:
         List of member objects as returned by GitHub API /orgs/{org}/members
     """
+    cfg = get_config()
     if members is None:
-        members = ALL_ORG_MEMBERS if include_all else []
+        members = cfg.all_org_members if include_all else []
 
     org_members = []
     for member in members:
@@ -711,14 +979,15 @@ def generate_copilot_seats(
 
     Args:
         org_name: Organization name for the Copilot data.
-        members: Custom member list. If None, uses ALL_ORG_MEMBERS.
+        members: Custom member list. If None, uses all org members from config.
         coverage_ratio: Ratio of members who have Copilot seats (0.0-1.0).
 
     Returns:
         Copilot seats response object as returned by GitHub API.
     """
+    cfg = get_config()
     if members is None:
-        members = ALL_ORG_MEMBERS
+        members = cfg.all_org_members
 
     now = datetime.now(UTC)
     seats = []
@@ -734,19 +1003,19 @@ def generate_copilot_seats(
             # Active: within 1 month
             days_ago = random.randint(0, 30)
             last_activity = now - timedelta(days=days_ago)
-            last_activity_editor = random.choice(COPILOT_EDITORS)
+            last_activity_editor = random.choice(cfg.copilot_editors)
             pending_cancellation = None
         elif pattern < 0.85:
             # Low activity: 1-3 months ago
             days_ago = random.randint(31, 90)
             last_activity = now - timedelta(days=days_ago)
-            last_activity_editor = random.choice(COPILOT_EDITORS)
+            last_activity_editor = random.choice(cfg.copilot_editors)
             pending_cancellation = None
         elif pattern < 0.95:
             # Dormant: 3+ months ago
             days_ago = random.randint(91, 180)
             last_activity = now - timedelta(days=days_ago)
-            last_activity_editor = random.choice(COPILOT_EDITORS)
+            last_activity_editor = random.choice(cfg.copilot_editors)
             pending_cancellation = None
         else:
             # Never used: null last_activity or pending cancellation
@@ -794,8 +1063,8 @@ def generate_copilot_seats(
             "assigning_team": None,
             "organization": {
                 "login": org_name,
-                "id": ORG_ID,
-                "node_id": f"MDEyOk9yZ2FuaXphdGlvbn{ORG_ID}",
+                "id": cfg.org_id,
+                "node_id": f"MDEyOk9yZ2FuaXphdGlvbn{cfg.org_id}",
                 "url": f"https://api.github.com/orgs/{org_name}",
                 "repos_url": f"https://api.github.com/orgs/{org_name}/repos",
                 "events_url": f"https://api.github.com/orgs/{org_name}/events",
@@ -803,7 +1072,7 @@ def generate_copilot_seats(
                 "issues_url": f"https://api.github.com/orgs/{org_name}/issues",
                 "members_url": f"https://api.github.com/orgs/{org_name}/members{{/member}}",
                 "public_members_url": f"https://api.github.com/orgs/{org_name}/public_members{{/member}}",
-                "avatar_url": f"https://avatars.githubusercontent.com/u/{ORG_ID}?v=4",
+                "avatar_url": f"https://avatars.githubusercontent.com/u/{cfg.org_id}?v=4",
                 "description": f"{org_name} organization",
             },
         }
@@ -864,27 +1133,37 @@ def print_summary(events: list[dict[str, Any]]) -> None:
     for actor, count in sorted(actors.items(), key=lambda x: -x[1])[:10]:
         print(f"  {actor}: {count}")
 
-    # Anomaly indicators
+    # Anomaly indicators (JST基準で判定)
+    cfg = get_config()
+
+    def get_jst_hour(timestamp_ms: int) -> int:
+        """タイムスタンプからJSTの時間を取得。"""
+        return datetime.fromtimestamp(timestamp_ms / 1000, tz=UTC).astimezone(JST).hour
+
+    def get_jst_weekday(timestamp_ms: int) -> int:
+        """タイムスタンプからJSTの曜日を取得。"""
+        return (
+            datetime.fromtimestamp(timestamp_ms / 1000, tz=UTC)
+            .astimezone(JST)
+            .weekday()
+        )
+
     late_night = sum(
         1
         for e in events
-        if datetime.fromtimestamp(e["@timestamp"] / 1000, tz=UTC).hour >= 22
-        or datetime.fromtimestamp(e["@timestamp"] / 1000, tz=UTC).hour < 6
+        if get_jst_hour(e["@timestamp"]) >= 22 or get_jst_hour(e["@timestamp"]) < 6
     )
-    dangerous = sum(1 for e in events if e["action"] in DANGEROUS_ACTIONS)
-    weekend = sum(
-        1
-        for e in events
-        if datetime.fromtimestamp(e["@timestamp"] / 1000, tz=UTC).weekday() >= 5
-    )
+    dangerous = sum(1 for e in events if e["action"] in cfg.dangerous_actions)
+    weekend = sum(1 for e in events if get_jst_weekday(e["@timestamp"]) >= 5)
+    suspicious_codes = [c["code"] for c in cfg.suspicious_countries]
     suspicious_country = sum(
-        1 for e in events if e.get("country_code") in ["RU", "CN", "KP"]
+        1 for e in events if e.get("country_code") in suspicious_codes
     )
 
-    print("\nAnomaly indicators:")
-    print(f"  Late night events (22:00-06:00): {late_night}")
+    print("\nAnomaly indicators (JST基準):")
+    print(f"  Late night events (JST 22:00-06:00): {late_night}")
     print(f"  Dangerous actions: {dangerous}")
-    print(f"  Weekend events: {weekend}")
+    print(f"  Weekend events (JST): {weekend}")
     print(f"  Suspicious country access: {suspicious_country}")
 
 
@@ -895,6 +1174,9 @@ def print_summary(events: list[dict[str, Any]]) -> None:
 
 def _create_argument_parser() -> argparse.ArgumentParser:
     """Create and configure argument parser."""
+    # Load config for defaults
+    cfg = get_config()
+
     parser = argparse.ArgumentParser(
         description="Generate realistic GitHub test data (Audit Logs, Org Members, Copilot Seats)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -904,7 +1186,7 @@ Examples:
     python scripts/generate_test_data.py --all
 
     # Generate only audit logs
-    python scripts/generate_test_data.py -n 10000 -o data/test.ndjson
+    python scripts/generate_test_data.py -n 10000 -o data/test.json
 
     # Generate Org Members list
     python scripts/generate_test_data.py --generate-members
@@ -936,36 +1218,36 @@ Examples:
         "--count",
         "-n",
         type=int,
-        default=10000,
-        help="Number of audit log events to generate (default: 10000)",
+        default=cfg.default_event_count,
+        help=f"Number of audit log events to generate (default: {cfg.default_event_count})",
     )
     audit_group.add_argument(
         "--output",
         "-o",
         type=Path,
         default=None,
-        help="Output file path for audit logs (default: data/test_audit_log.ndjson)",
+        help="Output file path for audit logs (default: data/test_audit_log.json)",
     )
     audit_group.add_argument(
         "--format",
         "-f",
         choices=["json", "ndjson"],
-        default="ndjson",
-        help="Output format for audit logs (default: ndjson)",
+        default="json",
+        help="Output format for audit logs (default: json)",
     )
     audit_group.add_argument(
         "--days",
         "-d",
         type=int,
-        default=90,
-        help="Number of days to span (default: 90)",
+        default=cfg.default_days,
+        help=f"Number of days to span (default: {cfg.default_days})",
     )
     audit_group.add_argument(
         "--anomaly-ratio",
         "-a",
         type=float,
-        default=0.05,
-        help="Ratio of anomalous events (default: 0.05)",
+        default=cfg.default_anomaly_ratio,
+        help=f"Ratio of anomalous events (default: {cfg.default_anomaly_ratio})",
     )
 
     # Org Members options
@@ -992,14 +1274,14 @@ Examples:
     copilot_group.add_argument(
         "--copilot-orgs",
         nargs="+",
-        default=["example-org"],
-        help="Organization names for Copilot data (default: example-org)",
+        default=None,  # Will be set based on --all flag
+        help=f"Organization names for Copilot data (default with --all: {', '.join(cfg.default_copilot_orgs)})",
     )
     copilot_group.add_argument(
         "--copilot-coverage",
         type=float,
-        default=0.8,
-        help="Ratio of members with Copilot seats (default: 0.8)",
+        default=cfg.default_copilot_coverage,
+        help=f"Ratio of members with Copilot seats (default: {cfg.default_copilot_coverage})",
     )
 
     return parser
@@ -1007,7 +1289,7 @@ Examples:
 
 def _run_audit_log_generation(args: argparse.Namespace) -> None:
     """Generate audit log data."""
-    output_path = args.output or args.data_dir / "test_audit_log.ndjson"
+    output_path = args.output or args.data_dir / "test_audit_log.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     print(f"\n{'=' * 60}")
@@ -1031,6 +1313,7 @@ def _run_audit_log_generation(args: argparse.Namespace) -> None:
 
 def _run_members_generation(args: argparse.Namespace) -> None:
     """Generate org members data."""
+    cfg = get_config()
     members_output = args.members_output or args.data_dir / "org_members.json"
     members_output.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1042,9 +1325,10 @@ def _run_members_generation(args: argparse.Namespace) -> None:
     save_org_members(members, members_output)
 
     print(f"Generated {len(members)} organization members")
-    print(f"  Admin users: {len(ADMIN_USERS)}")
-    print(f"  Regular users: {len(REGULAR_USERS)}")
-    print(f"  Dormant users: {len(DORMANT_USERS)}")
+    print(f"  Admin users: {len(cfg.admin_users)}")
+    print(f"  Regular users: {len(cfg.regular_users)}")
+    print(f"  Low activity users: {len(cfg.low_activity_users)}")
+    print(f"  Dormant users: {len(cfg.dormant_users)}")
 
 
 def _run_copilot_generation(args: argparse.Namespace) -> None:
@@ -1081,6 +1365,9 @@ def main() -> None:
     parser = _create_argument_parser()
     args = parser.parse_args()
 
+    # Load config
+    cfg = get_config()
+
     # Set random seed if provided
     if args.seed is not None:
         random.seed(args.seed)
@@ -1093,6 +1380,13 @@ def main() -> None:
     generate_audit = not (args.generate_members or args.generate_copilot) or args.all
     generate_members = args.generate_members or args.all
     generate_copilot = args.generate_copilot or args.all
+
+    # Set copilot orgs based on --all flag
+    if args.copilot_orgs is None:
+        if args.all:
+            args.copilot_orgs = cfg.default_copilot_orgs
+        else:
+            args.copilot_orgs = [cfg.org_name]
 
     # Run generators
     if generate_audit:

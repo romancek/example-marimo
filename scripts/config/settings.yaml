@@ -1,0 +1,116 @@
+# =============================================================================
+# config/settings.yaml
+# テストデータ生成のグローバル設定
+# =============================================================================
+#
+# このファイルには、監査ログ、組織メンバー、Copilotシートの
+# テストデータ生成に使用するグローバル設定が含まれています。
+
+# -----------------------------------------------------------------------------
+# 組織設定 (Organization Configuration)
+# -----------------------------------------------------------------------------
+# GitHub組織の基本情報を定義します。
+# 生成されるすべてのデータはこの組織に紐づきます。
+organization:
+  # name: 組織名（GitHub上の組織識別子）
+  name: "example-org"
+  # id: 組織のユニークID（GitHub APIで使用される数値ID）
+  id: 12345678
+
+# -----------------------------------------------------------------------------
+# デフォルト生成設定 (Default Generation Settings)
+# -----------------------------------------------------------------------------
+# CLIオプションが指定されない場合に使用されるデフォルト値です。
+# これらの値は --days, --count などのオプションで上書き可能です。
+defaults:
+  # days: 監査ログを生成する期間（日数）
+  # 休眠ユーザー分析には365日（1年分）を推奨
+  days: 365
+
+  # event_count: 生成する監査ログイベントの総数
+  # 大規模な分析テストには10000以上を推奨
+  event_count: 10000
+
+  # anomaly_ratio: 異常イベントの割合（0.0〜1.0）
+  # 深夜アクセス、危険な操作、休日アクセスなどが含まれます
+  # 0.05 = 5%のイベントが異常パターン
+  anomaly_ratio: 0.05
+
+  # copilot_coverage: Copilotシートを持つメンバーの割合（0.0〜1.0）
+  # 0.8 = メンバーの80%がCopilotライセンスを保有
+  copilot_coverage: 0.8
+
+  # copilot_orgs: --all フラグ使用時に生成するCopilotデータの組織リスト
+  # 複数組織のCopilot使用状況を分析するシナリオ用
+  copilot_orgs:
+    - "example-org"
+    - "other-copilot-org"
+
+# -----------------------------------------------------------------------------
+# ユーザーエージェント文字列 (User Agent Strings)
+# -----------------------------------------------------------------------------
+# 監査ログイベントに含まれるUser-Agentヘッダーのリスト。
+# 実際のGitHub監査ログで見られる値を模倣しています。
+# イベント生成時にランダムに選択されます。
+user_agents:
+  - "GitHub Desktop/3.3.0"          # GitHub Desktopアプリ
+  - "git/2.42.0"                    # Git CLIクライアント
+  - "git/2.43.0"                    # Git CLIクライアント（新バージョン）
+  - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"  # macOSブラウザ
+  - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"        # Windowsブラウザ
+  - "GitHub CLI/2.40.0"             # gh コマンドラインツール
+  - "python-requests/2.31.0"        # Python HTTPライブラリ（API自動化）
+
+# -----------------------------------------------------------------------------
+# Copilotエディタ文字列 (Copilot Editor Strings)
+# -----------------------------------------------------------------------------
+# Copilot使用時のエディタ情報を表す文字列。
+# GitHub Copilot Seats APIのlast_activity_editorフィールドで使用されます。
+# 形式: {エディタ}/{バージョン}/copilot/{Copilotバージョン}
+copilot_editors:
+  - "vscode/1.85.0/copilot/1.142.0"      # VS Code + Copilot
+  - "vscode/1.86.0/copilot/1.143.0"      # VS Code + Copilot（新バージョン）
+  - "JetBrains-IU/2023.3/copilot/1.4.5"  # IntelliJ IDEA + Copilot
+  - "neovim/0.9.4/copilot/1.11.1"        # Neovim + Copilot
+
+# -----------------------------------------------------------------------------
+# 地理的分布 (Geographic Distribution)
+# -----------------------------------------------------------------------------
+# アクセス元の国情報を定義します。
+# 監査ログのactor_location、country_codeフィールドで使用されます。
+countries:
+  # normal: 通常のアクセス元として使用される国
+  # 主に事業拠点や開発者が多い地域を含めます
+  normal:
+    - code: "JP"      # ISO 3166-1 alpha-2 国コード
+      name: "Japan"   # 国名（表示用）
+    - code: "US"
+      name: "United States"
+    - code: "GB"
+      name: "United Kingdom"
+    - code: "DE"
+      name: "Germany"
+    - code: "SG"
+      name: "Singapore"
+
+  # suspicious: 異常検知のトリガーとなる疑わしいアクセス元の国
+  # 深夜アクセスや不審なユーザーからのアクセスに使用されます
+  suspicious:
+    - code: "RU"
+      name: "Russia"
+    - code: "CN"
+      name: "China"
+    - code: "KP"
+      name: "North Korea"
+
+# -----------------------------------------------------------------------------
+# チーム名 (Team Names)
+# -----------------------------------------------------------------------------
+# 組織内のチーム名リスト。
+# team.add_member, team.add_repository などのイベントで使用されます。
+teams:
+  - "engineering"   # エンジニアリングチーム
+  - "qa"            # 品質保証チーム
+  - "devops"        # DevOpsチーム
+  - "security"      # セキュリティチーム
+  - "data-science"  # データサイエンスチーム
